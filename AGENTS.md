@@ -1,6 +1,6 @@
 # Claudio — asistente de escritorio
 
-Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados ("googly eyes", paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
+Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
 Estado: **fase 0 en curso** (2026-11-17): servidor y PWA con los ojos funcionando en dev. Ver `ROADMAP.md`.
 
@@ -30,7 +30,7 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 ```
 server/index.ts        API (/api/health, /api/upcoming) y sirve web/
 web/index.html         página única: ojos arriba, "Próximo" abajo
-web/eyes.js            ojos SVG animados (estados: idle, listening, thinking, talking, happy, sleepy, sleeping)
+web/eyes.js            ojos en pixel art (canvas 40×22 ampliado con image-rendering: pixelated; estados: idle, listening, thinking, talking, happy, sleepy, sleeping)
 web/app.js             reloj, modo noche, lista, salud + auto-recarga, wake lock
 web/sw.js              service worker (red primero; la API nunca se cachea)
 scripts/install-agent.sh  instala el LaunchAgent de dev o prod
