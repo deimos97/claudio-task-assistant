@@ -53,7 +53,7 @@ npm run check    # comprobación de tipos
 
 - Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. Después: `scripts/deploy.sh`.
 - Nunca editar a mano `~/Services/claudio-prod`: `deploy.sh` hace `git reset --hard origin/main`.
-- La PWA consulta `/api/health` cada 30 s y **se recarga sola** si cambia la versión (commit + hora de arranque). Un despliegue llega al iPhone sin tocarlo.
+- La PWA consulta `/api/health` cada 30 s y **se recarga sola** si cambia la versión (commit + fecha del último cambio en `web/`). Un despliegue llega al iPhone sin tocarlo.
 - Estado del servicio: `launchctl print gui/$(id -u)/com.deimos97.claudio.dev`; reiniciar: `launchctl kickstart -k gui/$(id -u)/com.deimos97.claudio.dev`.
 - Depurar los ojos: pulsación larga sobre la cara muestra botones con los estados; en consola, `claudio.eyes.setState('happy')`.
 
