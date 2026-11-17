@@ -30,7 +30,7 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 ```
 server/index.ts        API (/api/health, /api/upcoming) y sirve web/
 web/index.html         página única: ojos arriba, "Próximo" abajo
-web/eyes.js            ojos en pixel art (canvas 40×22 ampliado con image-rendering: pixelated; estados: idle, listening, thinking, talking, happy, sleepy, sleeping)
+web/eyes.js            ojos en pixel art: forma en "bloques" (escena de 40×22) pero posición continua a resolución real → movimiento suave. Estados: idle, listening, thinking, talking, happy, sleepy, sleeping
 web/app.js             reloj, modo noche, lista, salud + auto-recarga, wake lock
 web/sw.js              service worker (red primero; la API nunca se cachea)
 scripts/install-agent.sh  instala el LaunchAgent de dev o prod

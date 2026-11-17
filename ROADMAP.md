@@ -61,3 +61,4 @@
 | 2026-11-17 | Prod en clon aparte (`~/Services/claudio-prod`, :3110), dev en la copia de trabajo (:3111) | Trabajar en dev nunca toca lo que muestra el iPhone |
 | 2026-11-17 | Sin atribución de Claude en commits ni PRs | Preferencia de Javier (desactivado también en `~/.claude/settings.json`) |
 | 2026-11-17 | Ojos en pixel art con colores planos (coral sobre fondo oscuro, brillo crema) en vez de ojos realistas | A Javier los ojos realistas le daban mal rollo; el pixel art es más mono y más "asistente" |
+| 2026-11-17 | Ojos: forma pixelada pero movimiento suave (sprite a resolución real con muelle amortiguado) y más recorrido de mirada | El movimiento a saltos de bloque no le gustaba a Javier |
