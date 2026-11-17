@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Claudio">
+  <meta name="theme-color" content="#1f1e1d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="style.css">
+  <title>Claudio</title>
+</head>
+<body>
+  <header class="top">
+    <span id="clock" class="clock">--:--</span>
+    <span id="date" class="date"></span>
+    <span id="status" class="status" title="Conexión con el servidor"></span>
+  </header>
+
+  <main>
+    <section class="face" id="face" aria-label="Claudio">
+      <svg id="eyes" viewBox="0 0 400 240" role="img" aria-label="Ojos de Claudio"></svg>
+      <p id="caption" class="caption"></p>
+    </section>
+
+    <section class="upcoming" aria-labelledby="upcoming-title">
+      <h2 id="upcoming-title">Próximo</h2>
+      <ul id="upcoming-list"></ul>
+    </section>
+  </main>
+
+  <nav id="debug" class="debug" hidden>
+    <button data-state="idle">idle</button>
+    <button data-state="listening">listening</button>
+    <button data-state="thinking">thinking</button>
+    <button data-state="talking">talking</button>
+    <button data-state="happy">happy</button>
+    <button data-state="sleepy">sleepy</button>
+    <button data-state="sleeping">sleeping</button>
+  </nav>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

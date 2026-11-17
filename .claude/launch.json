@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "claudio-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--watch", "server/index.ts"],
+      "cwd": "/Users/javierrodriguezvarela/GitHub/deimos97/claudio-task-assistant",
+      "env": { "PORT": "3199", "CLAUDIO_ENV": "preview" },
+      "port": 3199
+    }
+  ]
+}

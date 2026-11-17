@@ -2,7 +2,9 @@
 
 Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados ("googly eyes", paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado: **fase 0, sin código todavía** (2026-11-17). Ver `ROADMAP.md`.
+Estado: **fase 0 en curso** (2026-11-17): servidor y PWA con los ojos funcionando en dev. Ver `ROADMAP.md`.
+
+Repo público: https://github.com/deimos97/claudio-task-assistant
 
 ## Arquitectura
 
@@ -20,7 +22,40 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 - **Voz:** wake word en el navegador (WASM) → pitido → grabación hasta silencio (VAD) → STT en el Mac mini (whisper.cpp, multilingüe) → Haiku → TTS.
 - **Calendario:** Claudio es dueño de sus eventos; se sincronizan hacia Google Calendar.
 
-Stack concreto: pendiente de decidir en fase 0 (ver `ROADMAP.md`).
+## Stack y estructura
+
+- **Backend:** Node ≥ 24 ejecutando TypeScript directamente (type stripping, sin build) + [Hono](https://hono.dev). Solo sintaxis "borrable": nada de `enum` ni `namespace` (lo comprueba `erasableSyntaxOnly`).
+- **Cliente:** HTML + CSS + JavaScript (módulos ES) sin framework ni build. Lo que hay en `web/` es lo que se sirve.
+
+```
+server/index.ts        API (/api/health, /api/upcoming) y sirve web/
+web/index.html         página única: ojos arriba, "Próximo" abajo
+web/eyes.js            ojos SVG animados (estados: idle, listening, thinking, talking, happy, sleepy, sleeping)
+web/app.js             reloj, modo noche, lista, salud + auto-recarga, wake lock
+web/sw.js              service worker (red primero; la API nunca se cachea)
+scripts/install-agent.sh  instala el LaunchAgent de dev o prod
+scripts/deploy.sh      despliega producción desde origin/main
+```
+
+## Comandos
+
+```bash
+npm run dev      # servidor con --watch (PORT=3111 por defecto)
+npm run check    # comprobación de tipos
+```
+
+## Entornos (Mac mini)
+
+| Entorno | Rama | Carpeta | Puerto | LaunchAgent | Log |
+|---|---|---|---|---|---|
+| dev | `dev` | esta copia de trabajo | 3111 | `com.deimos97.claudio.dev` (con `--watch`) | `~/Library/Logs/claudio-dev.log` |
+| prod | `main` | `~/Services/claudio-prod` (clon aparte) | 3110 | `com.deimos97.claudio.prod` | `~/Library/Logs/claudio-prod.log` |
+
+- Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. Después: `scripts/deploy.sh`.
+- Nunca editar a mano `~/Services/claudio-prod`: `deploy.sh` hace `git reset --hard origin/main`.
+- La PWA consulta `/api/health` cada 30 s y **se recarga sola** si cambia la versión (commit + hora de arranque). Un despliegue llega al iPhone sin tocarlo.
+- Estado del servicio: `launchctl print gui/$(id -u)/com.deimos97.claudio.dev`; reiniciar: `launchctl kickstart -k gui/$(id -u)/com.deimos97.claudio.dev`.
+- Depurar los ojos: pulsación larga sobre la cara muestra botones con los estados; en consola, `claudio.eyes.setState('happy')`.
 
 ## Conceptos del dominio
 

@@ -2,17 +2,19 @@
 
 ## Estado de partida (2026-11-17)
 
-- Carpeta vacía, sin repo git todavía.
+- Carpeta vacía, sin repo git todavía (repo creado ese mismo día: deimos97/claudio-task-assistant, público).
 - Mac mini: macOS 26.6.2, arm64, Node y Python 3 instalados; sin Tailscale, Caddy ni whisper.cpp.
 - iPhone 11 disponible (LCD, sin riesgo de quemado de pantalla; batería: vigilar hinchazón por carga continua).
 
 ## Fase 0 — Esqueleto
 
-- [ ] Elegir stack del backend y del cliente
-- [ ] `git init`, repo en GitHub, ramas `main` / `dev`
-- [ ] Backend mínimo en el Mac mini como LaunchAgent (prod y dev en puertos distintos)
+- [x] Elegir stack del backend y del cliente (2026-11-17)
+- [x] `git init`, repo en GitHub, ramas `main` / `dev` (2026-11-17)
+- [x] Backend mínimo en el Mac mini como LaunchAgent: dev en :3111 (2026-11-17)
+- [ ] Primer merge `dev → main` y `scripts/deploy.sh` → prod en :3110
 - [ ] HTTPS para el iPhone (necesario para micro/cámara): Tailscale (MagicDNS + certificados) u otra opción
-- [ ] PWA con los ojos animados: idle/parpadeo, mirar alrededor, escuchando, pensando, hablando, contento, dormido (noche)
+- [x] PWA con los ojos animados: idle/parpadeo, mirar alrededor, escuchando, pensando, hablando, contento, adormilado, dormido (noche 23:00–07:30) (2026-11-17)
+- [ ] Probar en el iPhone 11 real (rendimiento de la animación, wake lock, instalación en pantalla de inicio)
 - [ ] iPhone en modo kiosco: pantalla de inicio, Acceso Guiado, bloqueo "Nunca", carga optimizada / enchufe inteligente
 
 ## Fase 1 — Hablar con Claudio (texto) + eventos
@@ -43,7 +45,7 @@
 
 ## Deuda técnica
 
-(nada todavía)
+- [ ] El icono PNG tiene esquinas transparentes; iOS prefiere un cuadrado opaco.
 
 ## Decisiones tomadas
 
@@ -55,3 +57,6 @@
 | 2026-11-17 | Claudio es dueño de sus eventos y sincroniza hacia Google Calendar | Fuente de verdad única; Google como vista |
 | 2026-11-17 | Claudio habla español e inglés | Preferencia de Javier |
 | 2026-11-17 | Activación por palabra ("Claudio") con pitido de confirmación | Preferencia de Javier |
+| 2026-11-17 | Backend: Node ≥ 24 con TypeScript sin build + Hono; cliente: HTML/CSS/JS sin framework | Mínimas piezas para que Claude Code pueda cambiar y desplegar sin cadena de build |
+| 2026-11-17 | Prod en clon aparte (`~/Services/claudio-prod`, :3110), dev en la copia de trabajo (:3111) | Trabajar en dev nunca toca lo que muestra el iPhone |
+| 2026-11-17 | Sin atribución de Claude en commits ni PRs | Preferencia de Javier (desactivado también en `~/.claude/settings.json`) |
