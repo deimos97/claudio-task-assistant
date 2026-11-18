@@ -3,7 +3,7 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { streamSSE } from 'hono/streaming';
@@ -14,6 +14,10 @@ import { subscribe } from './bus.ts';
 import { completeItem, InputError, upcoming } from './items.ts';
 import { chat, chatConfigured, recentMessages, usageSummary } from './chat.ts';
 import { speak, transcribe, VoiceError } from './voice.ts';
+import { checkEntries } from './lists.ts';
+import { doneRoutine } from './routines.ts';
+import { buildView, checkSpec } from './view.ts';
+import { weather } from './weather.ts';
 
 // Versión = commit actual + fecha del último cambio en web/. La PWA la consulta y
 // se recarga sola cuando cambia: un despliegue (o una edición en dev) llega al
@@ -58,14 +62,34 @@ app.get('/api/health', (c) => c.json({ ok: true, env: ENV, version: version(), c
 
 app.get('/api/upcoming', (c) => c.json({ items: upcoming() }));
 
-app.post('/api/items/:id/done', async (c) => {
+// Lo que enseña el panel: ?spec={...} (la de la herramienta `show`); sin spec, "Próximo".
+app.get('/api/view', (c) => {
+  try {
+    const raw = c.req.query('spec');
+    return c.json(buildView(checkSpec(raw ? JSON.parse(raw) : {})));
+  } catch (e) {
+    if (e instanceof InputError || e instanceof SyntaxError) return c.json({ error: e.message }, 400);
+    throw e;
+  }
+});
+
+// Marcar como hecho desde la pantalla: tareas, rutinas y entradas de lista.
+const done = (fn: (id: number, done: boolean) => unknown) => async (c: Context) => {
   try {
     const body = await c.req.json().catch(() => ({}));
-    return c.json({ item: completeItem(Number(c.req.param('id')), body?.done !== false) });
+    return c.json({ ok: true, result: fn(Number(c.req.param('id')), body?.done !== false) });
   } catch (e) {
     if (e instanceof InputError) return c.json({ error: e.message }, 404);
     throw e;
   }
+};
+app.post('/api/items/:id/done', done((id, d) => completeItem(id, d)));
+app.post('/api/routines/:id/done', done((id) => doneRoutine({ id })));
+app.post('/api/entries/:id/done', done((id, d) => checkEntries([id], d)));
+
+app.get('/api/weather', async (c) => {
+  const w = await weather();
+  return w ? c.json(w) : c.json({ error: 'Sin datos del tiempo' }, 503);
 });
 
 app.get('/api/usage', (c) => c.json(usageSummary()));
@@ -114,7 +138,7 @@ app.post('/api/tts', async (c) => {
   }
 });
 
-// Avisos en vivo: "items" (cambió la agenda) y "chat" (mensaje nuevo).
+// Avisos en vivo: "items" (cambió algo), "chat" (mensaje nuevo), "show" (Claudio enseña algo).
 app.get('/api/stream', (c) =>
   streamSSE(c, async (stream) => {
     c.header('X-Accel-Buffering', 'no'); // que nginx no acumule los avisos
@@ -135,6 +159,8 @@ app.use('/*', serveStatic({
   // Hono no conoce .m4a; Safari necesita el tipo para reproducirlo
   onFound: (path, c) => { if (path.endsWith('.m4a')) c.header('Content-Type', 'audio/mp4'); },
 }));
+
+void weather(); // primera consulta del tiempo al arrancar, para que el chat no espere
 
 serve({ fetch: app.fetch, port: PORT, hostname: '0.0.0.0' }, (info) => {
   console.log(`Claudio [${ENV}] ${version()} escuchando en http://0.0.0.0:${info.port} · BD ${DB_FILE}`);

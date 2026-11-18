@@ -36,7 +36,7 @@ Muestras en `web/_voces/` (fuera de git; en dev: `/_voces/`). Todas locales y gr
 
 | Motor | Voces probadas | Tiempo por frase (~6 s de audio) | Instalación |
 |---|---|---|---|
-| macOS `say` (la actual) | Reed, Mónica, Paulina, Eddy, Rocko; Samantha, Daniel | instantáneo | ya está |
+| macOS `say` | Jorge y Mónica (mejoradas), Reed, Paulina, Eddy, Rocko; Samantha, Daniel | instantáneo | ya está |
 | Piper (neuronal) | es: davefx, sharvard, carlfm; en: ryan | 0,1–0,4 s | `~/.claudio/tts-venv` (Python 3.12) + `~/.claudio/models/tts/*.onnx` |
 | Kokoro-82M (neuronal) | es: alex, santa, dora; en: michael, puck, heart, george | 1,3–2 s | mismo venv + `kokoro-v1.0.onnx` (325 MB) |
 

@@ -28,46 +28,62 @@
 - [x] Chat de texto con Haiku (`claude-haiku-5-5`, esfuerzo bajo) y herramientas: listar, crear, cambiar, completar y borrar eventos/tareas (2026-11-18; probado con una API simulada)
 - [x] Probado con la API real en dev: crear, mover, completar y borrar; responde en el idioma de la pregunta y pide la hora si falta; ~1–2,5 s por respuesta (2026-11-18)
 - [x] Entrada por teclado: botón pequeño en móvil que abre un panel; en escritorio, columna de chat siempre visible (2026-11-18)
-- [ ] Desplegar fase 1 a prod (PR #2 `dev → main`, abierto el 2026-11-18)
+- [x] Fase 1 (texto + voz) desplegada a prod: PR #2 mergeado y `scripts/deploy.sh` (2026-11-18, c7a5abc). BD de prod nueva y vacía; migraciones 001–002 aplicadas
 - [x] Wake word "Claudio" + pitido: el navegador detecta frases por energía (VAD) y whisper las transcribe; si empiezan por "Claudio" (o "oye/hey Claudio") es para él. "Claudio" solo → pitido y espera la orden 7 s; "Claudio, haz X" de un tirón → directo (2026-11-18; probado con audio grabado en el navegador)
 - [x] Reconocimiento de voz en el Mac mini: whisper.cpp (`large-v3-turbo` q5 + VAD Silero) como LaunchAgent en 127.0.0.1:3120; idioma fijado a "es" (entiende igual el inglés) → ~0,85 s por frase (2026-11-18)
 - [x] Claudio contesta en voz alta: `say` de macOS (voz Reed, es/en según el texto) → AAC; mientras habla no escucha. Si su respuesta es una pregunta, vuelve a escuchar sin wake word (2026-11-18)
 - [x] Botón de micro en la cabecera (activa la voz en ese dispositivo y lo recuerda); con la voz activada, tocar la cara = "te escucho" (2026-11-18)
 - [x] Voz probada en el iPhone real: funciona (2026-11-18). Javier sigue probando por si hay fallos
 - [x] Voz nueva (provisional): **Jorge (mejorada)** de macOS en español y **Kokoro Heart** en inglés, con Samantha de respaldo (2026-11-18)
-- [ ] Voz definitiva en castellano con carácter de "robot Disney" (entrañable, expresivo; no efectos robóticos): clonar en local (Chatterbox/F5) con una grabación de referencia, o voz diseñada en la nube (ElevenLabs)
 - [x] Claudio decía "te dije que había mirado la lista y no lo hice": el historial sin herramientas le confundía. Ahora recibe la agenda en cada turno y el historial es de las últimas 3 h (2026-11-18)
 - [x] Las muestras de voz no sonaban en el iPhone: el service worker ya no intercepta audio (2026-11-18)
 - [x] Registro del gasto de la API (`api_usage`, `GET /api/usage`): ~0,00034 $ por mensaje de media (2026-11-18)
-- [ ] Notas y listas (compra, ideas…) que Claudio mantiene
-- [ ] Tiempo (clima) junto al reloj (Open-Meteo, sin clave)
+- [x] Listas que Claudio mantiene (compra, ideas, notas…): la de la compra va por secciones del súper; no duplica lo pendiente; lo comprado se tacha (2026-11-18)
+- [x] Categorías en todo (eventos, tareas, listas, rutinas): Claudio pone las obvias y dice cuál ha puesto (2026-11-18)
+- [x] Tiempo (Open-Meteo, sin clave) en el pie junto a la fecha ("Miércoles - 18-11-26") y en la agenda de Claudio. Lugar por defecto: Madrid (`CLAUDIO_LAT`/`CLAUDIO_LON`/`CLAUDIO_PLACE`) (2026-11-18)
+- [ ] Confirmar la ubicación del tiempo (ahora Madrid)
+- [x] Interfaz: fuera la barra de arriba; tiempo, fecha, punto de conexión, micro y teclado en un pie de una línea; ojos al 36 % en reposo (2026-11-18)
+- [x] Panel dinámico: Claudio "te enseña" lo que pides con la herramienta `show` (una lista, una categoría, lo de N días…): los ojos encogen al 13 %, el panel sube como una tarjeta y lo miran; vuelve a "Próximo" tras 60 s sin tocarlo, al tocar los ojos o la ×, o con una respuesta que no enseña nada (2026-11-18)
+- [x] Pie y altura comprobados en el iPhone real: la PWA solo enseña `100svh` (848 de 896) (2026-11-18)
+- [ ] Probar el panel dinámico en el iPhone real
 - [x] Sincronización en vivo entre pantallas (SSE, `/api/stream`): agenda y chat aparecen al momento en todas (2026-11-18)
 - [x] Diseño de escritorio básico: ojos + lista a la izquierda, chat a la derecha (≥ 900 px con ratón) (2026-11-18)
 - [x] Eventos y tareas propios de Claudio en "Próximo": vencidas en rojo, tocar el círculo marca una tarea como hecha (2026-11-18)
-- [ ] Sincronización con Google Calendar (calendario dedicado "Claudio")
 
 ## Fase 2 — Motor de mantenimiento
 
-- [ ] Modelo: activos, contadores, lecturas, tareas (tiempo / uso / lo primero)
-- [ ] Estimación de ritmo de uso y fecha proyectada
-- [ ] Tareas de mantenimiento en la lista "Próximo"
+- [x] Modelo: activos, contadores, lecturas, rutinas (tiempo / uso / lo primero) e historial (`003_listas_rutinas.sql`) (2026-11-18)
+- [x] Rutinas solo por tiempo, sin activo: "cambiar la arena de los gatos cada 5 días" (probado con la API real) (2026-11-18)
+- [x] Estimación de ritmo de uso (lecturas del último año) y fecha proyectada; vence lo primero que llegue (2026-11-18)
+- [x] Rutinas en "Próximo" (las que tocan en 14 días; círculo discontinuo); marcarlas hechas apunta la fecha (y el contador) y recalcula la siguiente (2026-11-18)
+- [ ] Probar una rutina por uso con lecturas reales (coche: km)
 
 ## Fase 3 — Proactividad (y mejoras de voz)
 
 - [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase
-- [ ] Voz de Claudio mejor que `say` (TTS neuronal local o en la nube)
-- [ ] Check-ins proactivos (pedir km, confirmar tareas hechas)
+- [ ] Check-ins proactivos (pedir km, confirmar tareas hechas): p. ej. "¿has cambiado la arena? ¿cuándo?" cuando una rutina vence
 - [ ] Resumen diario por la mañana: agenda, mantenimiento que vence, tiempo
-- [ ] Papel por dispositivo: solo el iPhone del escritorio ("kiosco") escucha la wake word, duerme de noche y habla en voz alta; el resto son pantallas normales
+- [ ] Papel por dispositivo: solo el iPhone del escritorio ("kiosco") escucha la wake word, duerme de noche y habla en voz alta; el resto son pantallas normales. Ya hay medio camino: la voz se activa por dispositivo con el botón del micro
 - [ ] Opcional: los ojos siguen tu cara con la cámara frontal
 
 ## Fase 4 — Auto-mejora
 
 - [ ] "Claudio, quiero X" → item en ROADMAP / issue de GitHub
 - [ ] Claude Code en el Mac mini lo implementa en `dev` y despliega en dev
-- [ ] Aprobación de Javier → merge a `main` → despliegue a producción
+- [x] Aprobación de Javier → merge a `main` → despliegue a producción: el despliegue ya es automático al mergear (2026-11-18)
+
+## Fase 5 — Integraciones y voz definitiva
+
+- [ ] Sincronización con Google Calendar (calendario dedicado "Claudio"); necesita un proyecto en Google Cloud con OAuth
+- [ ] Voz definitiva en castellano con carácter de "robot Disney" (entrañable, expresivo; no efectos robóticos): clonar en local (Chatterbox/F5) con una grabación de referencia, o voz diseñada en la nube (ElevenLabs)
 
 ## Deuda técnica
+
+- [x] Despliegue automático al mergear a `main`: el Mac mini mira `origin/main` cada minuto y ejecuta `deploy.sh` (2026-11-18)
+- [ ] Si un despliegue automático falla, que Claudio lo diga (ahora solo queda en `~/Library/Logs/claudio-deploy.log`)
+- [ ] Cuando se le da hora a una tarea ("la limpieza dental el jueves a las 17:00"), Claudio la deja como tarea con hora en vez de pasarla a evento
+- [ ] El chat de la API no tiene login en la red de casa: cualquiera en la Wi-Fi puede usarlo (y gastar API). Bajo riesgo hoy; revisar si se abre más
+- [ ] Sesión más larga fuera de casa: si molesta volver a entrar cada 12 h, "recordarme" en el home-portal (decidido en vez de emparejar dispositivos)
 
 - [x] El icono PNG tenía esquinas transparentes; ahora es un cuadrado opaco en pixel art (2026-11-17)
 
@@ -90,8 +106,14 @@
 | 2026-11-18 | Datos fuera del repo, en `~/.claudio/<entorno>/` (BD y copias); clave de Anthropic en `~/.claudio/anthropic-key` (600), común a dev y prod | `deploy.sh` hace `git reset --hard` en prod; dev y prod no comparten datos |
 | 2026-11-18 | Chat: una sola conversación compartida por todas las pantallas; solo se guarda el texto de cada turno (no las llamadas a herramientas); contexto de 20 mensajes | Simple y barato; la agenda real está en la BD, no en el historial |
 | 2026-11-18 | POST de la API solo con `Content-Type: application/json` | Protección CSRF barata: otra web no puede enviarlo sin preflight CORS |
+| 2026-11-18 | Despliegue automático por sondeo desde el Mac mini (cada minuto), no con GitHub Actions ni webhook | Repo público: un runner propio en casa es arriesgado y un webhook expone otro punto de entrada. El merge de Javier sigue siendo el sí |
 | 2026-11-18 | Voces provisionales: Jorge (macOS, mejorada) en español y Kokoro Heart en inglés | A Javier le gustan; ninguna local tenía acento de España con carácter a la vez. La original de Loquendo no se puede usar (discontinuada, con licencia) |
 | 2026-11-18 | Voz adelantada de la fase 3 a la fase 1 | Preferencia de Javier |
 | 2026-11-18 | Wake word = VAD por energía en el navegador + whisper en el Mac mini, sin modelo de wake word ni cuentas externas | Todo local, sin entrenar un modelo ni depender de Picovoice; whisper ya hacía falta para las órdenes. Si hay falsos positivos o va lento, se cambia solo esa pieza |
 | 2026-11-18 | Fuera el emparejamiento de dispositivos; si hace falta una sesión más larga fuera de casa, se mejora la sesión del home-portal ("recordarme") | Una sola forma de entrar para todos los servicios de la casa |
+| 2026-11-18 | Google Calendar y la voz definitiva en castellano pasan a una fase 5 | Ni bloquean el uso diario ni son urgentes; primero listas, tiempo y mantenimiento |
+| 2026-11-18 | Categorías en todo; Claudio elige las obvias y lo dice | Para poder pedir "lo de casa" sin clasificar a mano |
+| 2026-11-18 | Panel dinámico que Claudio controla: en reposo ojos al 36 %, al enseñar algo el panel crece como tarjeta sobre los ojos (13 %) y vuelve solo a los 60 s | Que la pantalla muestre lo que preguntas sin tocarla (solo para hacer scroll); como tarjeta parece que Claudio te lo enseña |
+| 2026-11-18 | Lo repetitivo es una "rutina" (tabla `routines`), no una tarea que se clona | Una sola fila con su historial; la siguiente fecha se calcula, no se guarda |
+| 2026-11-18 | Categorías como texto libre en minúsculas, sin tabla aparte | Claudio las elige y reutiliza las que ve en uso; no hace falta gestionarlas |
 | 2026-11-18 | Dominio propio en vez de Tailscale: `claudio.` / `claudio-dev.hotwheelsandbids.com`, nginx de la Raspberry como proxy al Mac mini; red local sin login, fuera con login del home-portal | Reutiliza la infraestructura que ya existe (nginx, certbot, Pi-hole, login) y no exige app en cada dispositivo |

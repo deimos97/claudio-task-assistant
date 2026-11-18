@@ -6,6 +6,10 @@ import { db } from './db.ts';
 import { ANTHROPIC_KEY_FILE, localNow } from './config.ts';
 import { publish } from './bus.ts';
 import { completeItem, createItem, deleteItem, InputError, listItems, updateItem, upcoming } from './items.ts';
+import { addToList, allLists, checkEntries, clearList, entries, removeEntries, updateEntry } from './lists.ts';
+import { assetsSummary, createRoutine, deleteRoutine, doneRoutine, listRoutines, logReading, routineLog, updateRoutine } from './routines.ts';
+import { buildView, checkSpec, type ViewSpec } from './view.ts';
+import { weather, weatherText } from './weather.ts';
 
 const MODEL = 'claude-haiku-5-5';
 // Precios de Haiku 5.5 en USD por millón de tokens (prompts < 100K). Caché: lectura 0,1×, escritura 1,25×.
@@ -30,7 +34,7 @@ function getClient(): Anthropic | null {
 export const chatConfigured = () => apiKey() !== undefined;
 
 const SYSTEM = `Eres Claudio, un pequeño asistente que vive en un iPhone sobre la mesa de Javier, con unos ojos en pixel art.
-Llevas su agenda: eventos (con fecha y hora) y tareas (con o sin fecha límite). Las guardas tú con las herramientas; lo que guardas aparece en la lista "Próximo" bajo tus ojos.
+Llevas su agenda (eventos y tareas), sus listas (la compra, ideas, notas…) y sus rutinas de mantenimiento (cosas que se repiten: "cambiar la arena de los gatos cada 5 días", "revisión del coche cada año o 15.000 km"). Lo guardas tú con las herramientas y se ve en el panel bajo tus ojos.
 
 Cómo respondes:
 - En el idioma en que te hablen (español o inglés).
@@ -39,8 +43,13 @@ Cómo respondes:
 
 Cómo usas las herramientas:
 - Fechas siempre en hora local de Madrid: "YYYY-MM-DD" para todo el día o "YYYY-MM-DDTHH:MM". Calcula "mañana", "el jueves", etc. a partir de la fecha actual que se te da.
-- Al final de estas instrucciones tienes la agenda pendiente tal como está ahora, con ids. Contesta con ella y úsala para cambiar, completar o borrar cosas. Usa list_items solo para lo ya hecho o para buscar fuera de esa lista. No inventes ids.
+- Al final de estas instrucciones tienes la agenda pendiente tal como está ahora, con ids. También el tiempo. Contesta con ello y úsalo para cambiar, completar o borrar cosas. Usa list_items solo para lo ya hecho o para buscar fuera de esa lista. No inventes ids.
+- Evento = algo con día y hora concretos (citas, quedadas): si te dan hora, es un evento aunque suene a tarea ("el dentista el jueves a las 17:00"). Tarea = algo por hacer, con o sin fecha límite.
 - Si falta un dato imprescindible (p. ej. la hora de una cita), pregúntalo; si no lo es, apúntalo sin fecha y dilo.
+- Categorías: pon siempre category (una o dos palabras en minúsculas: "casa", "gatos", "coche", "salud", "trabajo", "compras"…). Reutiliza las que ya existen si encajan. Si la eliges tú (no te la han dicho), dilo siempre en la respuesta, de pasada ("lo pongo en gatos"). Si algo de la agenda no tiene categoría y lo tocas, pónsela.
+- Listas: "apunta leche" o "añade a la compra" → list_add en la lista "Compra", con categoría de sección del súper en cada cosa ("fruta y verdura", "lácteos", "carne y pescado", "panadería", "despensa", "bebidas", "congelados", "limpieza", "higiene", "mascotas"). Lo comprado se tacha con list_check. Para ideas o notas sueltas, listas "Ideas" o "Notas" (o la que pida).
+- Rutinas: si algo se repite cada X tiempo o cada X km/horas, es una rutina (create_routine), no una tarea. Al crearla, si no sabes cuándo se hizo por última vez, pregúntalo; si no lo sabe, se queda como pendiente ya. "Ya he cambiado la arena" → routine_done (fecha de hoy salvo que diga otra). Lecturas de contadores ("el coche tiene 12.300 km") → log_reading.
+- Enseñar: si te piden ver algo ("enséñame lo de casa", "¿qué hay en la compra?", "¿qué tengo esta semana?"), o acabas de cambiar una lista o una categoría, usa show para que el panel lo enseñe. Entonces no lo enumeres en tu respuesta: un comentario corto basta ("Aquí tienes lo de casa: 3 cosas, la arena toca mañana").
 - Tras hacer cambios, confírmalos en una frase.
 - No digas que has hecho algo si la herramienta ha dado error.
 
@@ -56,6 +65,7 @@ const tools: Anthropic.Tool[] = [
         include_done: { type: 'boolean', description: 'Incluir también las tareas ya hechas' },
         from: { type: 'string', description: 'Desde esta fecha ("YYYY-MM-DD" o "YYYY-MM-DDTHH:MM")' },
         to: { type: 'string', description: 'Hasta esta fecha' },
+        category: { type: 'string' },
       },
     },
   },
@@ -70,8 +80,9 @@ const tools: Anthropic.Tool[] = [
         at: { type: 'string', description: 'Evento: inicio. Tarea: fecha límite (opcional). "YYYY-MM-DD" o "YYYY-MM-DDTHH:MM"' },
         end_at: { type: 'string', description: 'Solo eventos, opcional: fin' },
         notes: { type: 'string' },
+        category: { type: 'string', description: 'Categoría en minúsculas: "casa", "gatos", "salud"…' },
       },
-      required: ['kind', 'title'],
+      required: ['kind', 'title', 'category'],
     },
   },
   {
@@ -86,6 +97,7 @@ const tools: Anthropic.Tool[] = [
         at: { type: 'string' },
         end_at: { type: 'string' },
         notes: { type: 'string' },
+        category: { type: 'string' },
       },
       required: ['id'],
     },
@@ -108,14 +120,173 @@ const tools: Anthropic.Tool[] = [
       required: ['id'],
     },
   },
+  {
+    name: 'list_add',
+    description: 'Añade cosas a una lista ("Compra", "Ideas", "Notas"…). Si la lista no existe, la crea. No duplica lo que ya está pendiente.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        list: { type: 'string', description: 'Nombre de la lista' },
+        list_category: { type: 'string', description: 'Solo al crear una lista nueva: su categoría' },
+        entries: {
+          type: 'array',
+          items: { type: 'object', properties: { text: { type: 'string' }, category: { type: 'string' } }, required: ['text'] },
+        },
+      },
+      required: ['list', 'entries'],
+    },
+  },
+  {
+    name: 'list_check',
+    description: 'Tacha entradas de una lista (comprado / hecho), o las destacha con done = false.',
+    input_schema: {
+      type: 'object',
+      properties: { entry_ids: { type: 'array', items: { type: 'integer' } }, done: { type: 'boolean' } },
+      required: ['entry_ids'],
+    },
+  },
+  {
+    name: 'list_edit',
+    description: 'Cambia el texto o la categoría de una entrada de lista.',
+    input_schema: {
+      type: 'object',
+      properties: { id: { type: 'integer' }, text: { type: 'string' }, category: { type: 'string' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'list_remove',
+    description: 'Borra entradas de una lista (si se apuntaron por error o ya no hacen falta).',
+    input_schema: {
+      type: 'object',
+      properties: { entry_ids: { type: 'array', items: { type: 'integer' } } },
+      required: ['entry_ids'],
+    },
+  },
+  {
+    name: 'list_clear',
+    description: 'Quita de una lista lo ya tachado; con whole = true borra la lista entera (solo si lo piden).',
+    input_schema: {
+      type: 'object',
+      properties: { list: { type: 'string' }, whole: { type: 'boolean' } },
+      required: ['list'],
+    },
+  },
+  {
+    name: 'create_routine',
+    description: 'Crea una rutina que se repite: cada N días (every_days), cada N unidades de un contador (every_amount + asset + unit, p. ej. cada 15000 km del coche) o lo primero que llegue (ambos).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        category: { type: 'string' },
+        every_days: { type: 'integer', description: 'Cada cuántos días (1 año = 365)' },
+        every_amount: { type: 'number', description: 'Cada cuántas unidades del contador' },
+        asset: { type: 'string', description: 'Activo: "coche", "bici"… (obligatorio con every_amount)' },
+        unit: { type: 'string', description: 'Unidad del contador: "km", "horas"…' },
+        last_done_at: { type: 'string', description: 'Última vez que se hizo, "YYYY-MM-DD"' },
+        last_done_value: { type: 'number', description: 'Valor del contador la última vez' },
+        notes: { type: 'string' },
+      },
+      required: ['title', 'category'],
+    },
+  },
+  {
+    name: 'update_routine',
+    description: 'Cambia una rutina. Solo los campos que cambian.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer' }, title: { type: 'string' }, category: { type: 'string' },
+        every_days: { type: 'integer' }, every_amount: { type: 'number' }, asset: { type: 'string' }, unit: { type: 'string' },
+        last_done_at: { type: 'string' }, last_done_value: { type: 'number' }, notes: { type: 'string' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'routine_done',
+    description: 'Apunta que una rutina se ha hecho (hoy por defecto); la siguiente vez se recalcula sola.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer' },
+        done_at: { type: 'string', description: '"YYYY-MM-DD" si no fue hoy' },
+        value: { type: 'number', description: 'Valor del contador al hacerlo (km…), si lo dice' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'routine_history',
+    description: 'Las últimas veces que se hizo una rutina.',
+    input_schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
+  },
+  {
+    name: 'delete_routine',
+    description: 'Borra una rutina (solo si lo piden).',
+    input_schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
+  },
+  {
+    name: 'log_reading',
+    description: 'Apunta una lectura de un contador: "el coche tiene 12300 km". Sirve para estimar cuándo toca el mantenimiento por uso.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        asset: { type: 'string' }, unit: { type: 'string' }, value: { type: 'number' },
+        at: { type: 'string', description: '"YYYY-MM-DD" si no es de hoy' },
+      },
+      required: ['asset', 'unit', 'value'],
+    },
+  },
+  {
+    name: 'show',
+    description: 'Enseña algo en el panel grande bajo tus ojos (crece y se queda un rato). Sin filtros vuelve a "Próximo".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Título corto del panel; si no, uno automático' },
+        list: { type: 'string', description: 'Enseñar una lista ("Compra")' },
+        lists: { type: 'boolean', description: 'Enseñar todas las listas' },
+        category: { type: 'string', description: 'Solo esta categoría ("casa")' },
+        kinds: { type: 'array', items: { type: 'string', enum: ['events', 'tasks', 'routines'] } },
+        days: { type: 'integer', description: 'Solo lo de los próximos N días ("esta semana" = 7)' },
+      },
+    },
+  },
 ];
 
-function runTool(name: string, input: unknown): string {
+const READ_ONLY = new Set(['list_items', 'routine_history', 'show']);
+
+type TurnState = { view: ViewSpec | null };
+
+function runTool(name: string, input: unknown, state: TurnState): string {
   const args = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
   switch (name) {
     case 'list_items':
-      return JSON.stringify(listItems({ includeDone: args.include_done === true, from: str(args.from), to: str(args.to) }));
+      return JSON.stringify(listItems({ includeDone: args.include_done === true, from: str(args.from), to: str(args.to), category: str(args.category) }));
+    case 'list_add': {
+      const r = addToList(args);
+      return JSON.stringify({ list: r.list.name, added: r.added.map((e) => ({ id: e.id, text: e.text, category: e.category })) });
+    }
+    case 'list_check': return JSON.stringify(checkEntries(args.entry_ids, args.done !== false));
+    case 'list_edit': return JSON.stringify(updateEntry(args));
+    case 'list_remove': return JSON.stringify({ removed: removeEntries(args.entry_ids) });
+    case 'list_clear': return JSON.stringify(clearList(args.list, args.whole === true));
+    case 'create_routine': return JSON.stringify(createRoutine(args));
+    case 'update_routine': return JSON.stringify(updateRoutine(args));
+    case 'routine_done': return JSON.stringify(doneRoutine(args));
+    case 'routine_history': return JSON.stringify(routineLog(args.id));
+    case 'delete_routine': return JSON.stringify({ deleted: deleteRoutine(args.id) });
+    case 'log_reading': return JSON.stringify(logReading(args));
+    case 'show': {
+      const spec = checkSpec(args);
+      const v = buildView(spec);
+      state.view = spec;
+      const n = v.groups.reduce((a, g) => a + g.rows.length, 0);
+      return `En pantalla: "${v.title}" (${n} elementos).`;
+    }
     case 'create_item': return JSON.stringify(createItem(args));
     case 'update_item': return JSON.stringify(updateItem(args));
     case 'complete_item': return JSON.stringify(completeItem(args.id, args.done !== false));
@@ -154,15 +325,44 @@ export function recentMessages(limit = HISTORY, hours?: number): ChatRow[] {
   return rows.reverse();
 }
 
-/** La agenda pendiente en texto, para dársela al modelo en cada turno. */
-function agendaText(): string {
+/** Agenda, rutinas, listas, contadores y tiempo en texto, para dárselo al modelo en cada turno. */
+async function agendaText(): Promise<string> {
+  const out: string[] = [];
+  const cat = (c: string | null) => (c ? ` [${c}]` : '');
+
   const items = upcoming(60);
-  if (!items.length) return 'Agenda pendiente: vacía.';
-  const lines = items.map((it) => {
-    const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.at) : 'sin fecha';
-    return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${it.notes ? ` (${it.notes})` : ''}`;
-  });
-  return `Agenda pendiente ahora mismo (id · tipo · cuándo · título):\n${lines.join('\n')}`;
+  out.push(items.length
+    ? `Agenda pendiente (id · tipo · cuándo · título [categoría]):\n${items.map((it) => {
+      const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.at) : 'sin fecha';
+      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${it.notes ? ` (${it.notes})` : ''}`;
+    }).join('\n')}`
+    : 'Agenda pendiente: vacía.');
+
+  const routines = listRoutines();
+  out.push(routines.length
+    ? `Rutinas (id · título [categoría] · cada cuánto · toca):\n${routines.map((r) =>
+      `- id ${r.id} · ${r.title}${cat(r.category)} · ${r.detail} · toca ${r.due_at ?? 'sin estimar (faltan lecturas)'}`).join('\n')}`
+    : 'Rutinas: ninguna.');
+
+  const lists = allLists();
+  out.push(lists.length
+    ? `Listas (entradas pendientes con id):\n${lists.map((l) => {
+      const es = entries(l.id);
+      return `- ${l.name}${cat(l.category)}: ${es.length ? es.map((e) => `id ${e.id} ${e.text}${cat(e.category)}`).join('; ') : 'vacía'}`;
+    }).join('\n')}`
+    : 'Listas: ninguna.');
+
+  const counters = assetsSummary();
+  if (counters.length) {
+    out.push(`Contadores:\n${counters.map((c) => `- ${c.asset} (${c.unit}): ${c.last ? `${c.last.value} el ${c.last.at}` : 'sin lecturas'}${c.rate ? `, ~${c.rate.toFixed(1)}/día` : ''}`).join('\n')}`);
+  }
+
+  const cats = (db.prepare(`SELECT category FROM items WHERE category IS NOT NULL UNION SELECT category FROM routines WHERE category IS NOT NULL
+    UNION SELECT category FROM lists WHERE category IS NOT NULL`).all() as { category: string }[]).map((r) => r.category);
+  if (cats.length) out.push(`Categorías en uso: ${cats.join(', ')}.`);
+
+  out.push(weatherText(await weather()));
+  return out.join('\n\n');
 }
 function save(role: 'user' | 'assistant', text: string): ChatRow {
   const r = db.prepare('INSERT INTO chat_messages (role, text) VALUES (?, ?)').run(role, text);
@@ -173,13 +373,14 @@ function save(role: 'user' | 'assistant', text: string): ChatRow {
 
 // Un turno cada vez: la conversación es única y compartida entre pantallas.
 let queue: Promise<unknown> = Promise.resolve();
-export function chat(text: string): Promise<{ reply: string; changed: boolean }> {
+export type ChatResult = { reply: string; changed: boolean; view: ViewSpec | null };
+export function chat(text: string): Promise<ChatResult> {
   const run = queue.then(() => turn(text));
   queue = run.catch(() => {});
   return run;
 }
 
-async function turn(text: string): Promise<{ reply: string; changed: boolean }> {
+async function turn(text: string): Promise<ChatResult> {
   const c = getClient();
   if (!c) throw new Error(`Falta la clave de Anthropic (${ANTHROPIC_KEY_FILE})`);
 
@@ -195,10 +396,11 @@ async function turn(text: string): Promise<{ reply: string; changed: boolean }> 
   const now = localNow();
   const system: Anthropic.TextBlockParam[] = [
     { type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: `Ahora: ${now.weekday} ${now.stamp} (Europe/Madrid).\n\n${agendaText()}` },
+    { type: 'text', text: `Ahora: ${now.weekday} ${now.stamp} (Europe/Madrid).\n\n${await agendaText()}` },
   ];
 
   let changed = false;
+  const state: TurnState = { view: null };
   let reply = '';
   let turnCost = 0;
   const started = Date.now();
@@ -225,8 +427,8 @@ async function turn(text: string): Promise<{ reply: string; changed: boolean }> 
     for (const block of res.content) {
       if (block.type !== 'tool_use') continue;
       try {
-        results.push({ type: 'tool_result', tool_use_id: block.id, content: runTool(block.name, block.input) });
-        if (block.name !== 'list_items') changed = true;
+        results.push({ type: 'tool_result', tool_use_id: block.id, content: runTool(block.name, block.input, state) });
+        if (!READ_ONLY.has(block.name)) changed = true;
       } catch (e) {
         if (!(e instanceof InputError)) throw e;
         results.push({ type: 'tool_result', tool_use_id: block.id, content: e.message, is_error: true });
@@ -236,7 +438,9 @@ async function turn(text: string): Promise<{ reply: string; changed: boolean }> 
     if (step === MAX_STEPS - 1) reply = textOut || 'Me he quedado a medias; mira la lista por si acaso.';
   }
 
+  // La vista se avisa antes que la respuesta: las pantallas la enseñan mientras la leen.
+  if (state.view) publish('show', state.view);
   save('assistant', reply);
   console.log(`chat: ${Date.now() - started} ms, $${turnCost.toFixed(5)}`);
-  return { reply, changed };
+  return { reply, changed, view: state.view };
 }

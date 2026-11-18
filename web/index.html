@@ -15,24 +15,20 @@
   <title>Claudio</title>
 </head>
 <body>
-  <header class="top">
-    <span id="clock" class="clock">--:--</span>
-    <span id="date" class="date"></span>
-    <button id="mic" class="mic" type="button" aria-pressed="false" aria-label="Voz: escuchar «Claudio»" title="Voz">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-    </button>
-    <span id="status" class="status" title="Conexión con el servidor"></span>
-  </header>
 
   <main>
     <section class="face" id="face" aria-label="Claudio">
-      <canvas id="eyes" role="img" aria-label="Ojos de Claudio"></canvas>
+      <div class="eyes-box"><canvas id="eyes" role="img" aria-label="Ojos de Claudio"></canvas></div>
       <p id="caption" class="caption"></p>
     </section>
 
-    <section class="upcoming" aria-labelledby="upcoming-title">
-      <h2 id="upcoming-title">Próximo</h2>
-      <ul id="upcoming-list"></ul>
+    <section class="panel" id="panel" aria-labelledby="panel-title">
+      <header class="panel-head">
+        <h2 id="panel-title">Próximo</h2>
+        <button id="panel-close" class="panel-close" type="button" aria-label="Volver a Próximo" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+      </header>
+      <p id="panel-note" class="panel-note"></p>
+      <div id="panel-body" class="panel-body"></div>
     </section>
   </main>
 
@@ -44,7 +40,16 @@
       <button id="chat-send" type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h13M12 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
   </aside>
-  <button id="kbd" class="kbd" type="button" aria-label="Escribir a Claudio" aria-controls="chat" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+
+  <footer class="foot">
+    <span id="weather" class="weather"></span>
+    <span id="date" class="date"></span>
+    <span id="status" class="status" title="Conexión con el servidor"></span>
+    <button id="mic" class="mic" type="button" aria-pressed="false" aria-label="Voz: escuchar «Claudio»" title="Voz">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+    <button id="kbd" class="kbd" type="button" aria-label="Escribir a Claudio" aria-controls="chat" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  </footer>
 
   <nav id="debug" class="debug" hidden>
     <button data-state="idle">idle</button>

@@ -49,7 +49,7 @@ export class Eyes {
     this.ctx = canvas.getContext('2d');
     this.bs = 1; // tamaño de un bloque en píxeles reales del canvas
     this.resize();
-    new ResizeObserver(() => this.resize()).observe(canvas);
+    new ResizeObserver(() => this.resize()).observe(canvas.parentElement ?? canvas);
 
     this.state = 'idle';
     this.cur = { lookX: 0, lookY: 0, vx: 0, vy: 0, lidL: 0, lidR: 0, scale: 1, blush: 0, zz: 0 };
@@ -64,10 +64,19 @@ export class Eyes {
     requestAnimationFrame((t) => this.frame(t));
   }
 
-  /** El canvas tiene la resolución real de la pantalla (CSS × devicePixelRatio). */
+  /** El canvas cabe entero en su caja (que cambia de tamaño cuando el panel crece) y
+   *  tiene la resolución real de la pantalla (CSS × devicePixelRatio). */
   resize() {
     const dpr = window.devicePixelRatio || 1;
-    const w = Math.max(GRID_W, R(this.canvas.clientWidth * dpr));
+    const box = this.canvas.parentElement;
+    let cssW = this.canvas.clientWidth;
+    if (box && box.clientWidth && box.clientHeight) {
+      cssW = Math.min(box.clientWidth, (box.clientHeight * GRID_W) / GRID_H);
+      this.canvas.style.width = `${cssW}px`;
+      this.canvas.style.height = `${(cssW * GRID_H) / GRID_W}px`;
+    }
+    const w = Math.max(GRID_W, R(cssW * dpr));
+    if (w === this.canvas.width) return;
     this.canvas.width = w;
     this.canvas.height = R((w * GRID_H) / GRID_W);
     this.bs = w / GRID_W;
