@@ -240,3 +240,16 @@ body.chat-open .chat {
   .kbd { display: none; }
   .upcoming { padding-bottom: 16px; }
 }
+
+/* ---------- Micro (voz) ---------- */
+.mic {
+  align-self: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--line); background: none; color: var(--muted);
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+  opacity: .6;
+}
+.mic svg { width: 17px; height: 17px; }
+.mic.on { opacity: 1; color: var(--accent); border-color: var(--accent); }
+.mic.active { background: var(--accent); color: #1f1410; animation: mic-pulse 1.2s ease-in-out infinite; }
+@keyframes mic-pulse { 50% { box-shadow: 0 0 0 6px rgba(217, 119, 87, .25); } }

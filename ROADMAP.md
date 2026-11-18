@@ -22,18 +22,22 @@
 - [x] Probar en el iPhone 11 real (rendimiento de la animación, wake lock, instalación en pantalla de inicio) (2026-11-18)
 - [x] iPhone en modo kiosco: pantalla de inicio, Acceso Guiado, bloqueo "Nunca" (2026-11-18)
 
-## Fase 1 — Hablar con Claudio (texto) + eventos
+## Fase 1 — Hablar con Claudio (texto y voz) + eventos
 
 - [x] Base de datos (SQLite, `node:sqlite`) + migraciones versionadas + copia al arrancar y cada 24 h, 14 guardadas (2026-11-18)
 - [x] Chat de texto con Haiku (`claude-haiku-5-5`, esfuerzo bajo) y herramientas: listar, crear, cambiar, completar y borrar eventos/tareas (2026-11-18; probado con una API simulada)
 - [x] Probado con la API real en dev: crear, mover, completar y borrar; responde en el idioma de la pregunta y pide la hora si falta; ~1–2,5 s por respuesta (2026-11-18)
 - [x] Entrada por teclado: botón pequeño en móvil que abre un panel; en escritorio, columna de chat siempre visible (2026-11-18)
-- [ ] Desplegar fase 1 a prod (PR `dev → main`)
+- [ ] Desplegar fase 1 a prod (PR #2 `dev → main`, abierto el 2026-11-18)
+- [x] Wake word "Claudio" + pitido: el navegador detecta frases por energía (VAD) y whisper las transcribe; si empiezan por "Claudio" (o "oye/hey Claudio") es para él. "Claudio" solo → pitido y espera la orden 7 s; "Claudio, haz X" de un tirón → directo (2026-11-18; probado con audio grabado en el navegador)
+- [x] Reconocimiento de voz en el Mac mini: whisper.cpp (`large-v3-turbo` q5 + VAD Silero) como LaunchAgent en 127.0.0.1:3120; idioma fijado a "es" (entiende igual el inglés) → ~0,85 s por frase (2026-11-18)
+- [x] Claudio contesta en voz alta: `say` de macOS (voz Reed, es/en según el texto) → AAC; mientras habla no escucha. Si su respuesta es una pregunta, vuelve a escuchar sin wake word (2026-11-18)
+- [x] Botón de micro en la cabecera (activa la voz en ese dispositivo y lo recuerda); con la voz activada, tocar la cara = "te escucho" (2026-11-18)
+- [ ] Probar la voz en el iPhone real: permiso del micro en la PWA, volumen del altavoz con el micro abierto, falsos positivos con la tele, recarga automática sin toque
 - [ ] Notas y listas (compra, ideas…) que Claudio mantiene
 - [ ] Tiempo (clima) junto al reloj (Open-Meteo, sin clave)
 - [x] Sincronización en vivo entre pantallas (SSE, `/api/stream`): agenda y chat aparecen al momento en todas (2026-11-18)
 - [x] Diseño de escritorio básico: ojos + lista a la izquierda, chat a la derecha (≥ 900 px con ratón) (2026-11-18)
-- [ ] Emparejamiento de dispositivos con sesión larga propia de Claudio (fuera de casa ahora depende de la sesión de 12 h del home-portal)
 - [x] Eventos y tareas propios de Claudio en "Próximo": vencidas en rojo, tocar el círculo marca una tarea como hecha (2026-11-18)
 - [ ] Sincronización con Google Calendar (calendario dedicado "Claudio")
 
@@ -43,11 +47,10 @@
 - [ ] Estimación de ritmo de uso y fecha proyectada
 - [ ] Tareas de mantenimiento en la lista "Próximo"
 
-## Fase 3 — Voz y proactividad
+## Fase 3 — Proactividad (y mejoras de voz)
 
-- [ ] Wake word "Claudio" en el navegador + pitido de confirmación
-- [ ] VAD (fin de frase) + STT con whisper.cpp en el Mac mini (es/en)
-- [ ] TTS (voz de Claudio) e ignorar la wake word mientras habla él mismo
+- [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase
+- [ ] Voz de Claudio mejor que `say` (TTS neuronal local o en la nube)
 - [ ] Check-ins proactivos (pedir km, confirmar tareas hechas)
 - [ ] Resumen diario por la mañana: agenda, mantenimiento que vence, tiempo
 - [ ] Papel por dispositivo: solo el iPhone del escritorio ("kiosco") escucha la wake word, duerme de noche y habla en voz alta; el resto son pantallas normales
@@ -82,4 +85,7 @@
 | 2026-11-18 | Datos fuera del repo, en `~/.claudio/<entorno>/` (BD y copias); clave de Anthropic en `~/.claudio/anthropic-key` (600), común a dev y prod | `deploy.sh` hace `git reset --hard` en prod; dev y prod no comparten datos |
 | 2026-11-18 | Chat: una sola conversación compartida por todas las pantallas; solo se guarda el texto de cada turno (no las llamadas a herramientas); contexto de 20 mensajes | Simple y barato; la agenda real está en la BD, no en el historial |
 | 2026-11-18 | POST de la API solo con `Content-Type: application/json` | Protección CSRF barata: otra web no puede enviarlo sin preflight CORS |
+| 2026-11-18 | Voz adelantada de la fase 3 a la fase 1 | Preferencia de Javier |
+| 2026-11-18 | Wake word = VAD por energía en el navegador + whisper en el Mac mini, sin modelo de wake word ni cuentas externas | Todo local, sin entrenar un modelo ni depender de Picovoice; whisper ya hacía falta para las órdenes. Si hay falsos positivos o va lento, se cambia solo esa pieza |
+| 2026-11-18 | Fuera el emparejamiento de dispositivos; si hace falta una sesión más larga fuera de casa, se mejora la sesión del home-portal ("recordarme") | Una sola forma de entrar para todos los servicios de la casa |
 | 2026-11-18 | Dominio propio en vez de Tailscale: `claudio.` / `claudio-dev.hotwheelsandbids.com`, nginx de la Raspberry como proxy al Mac mini; red local sin login, fuera con login del home-portal | Reutiliza la infraestructura que ya existe (nginx, certbot, Pi-hole, login) y no exige app en cada dispositivo |

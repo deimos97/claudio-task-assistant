@@ -13,6 +13,7 @@ import './db.ts';
 import { subscribe } from './bus.ts';
 import { completeItem, InputError, upcoming } from './items.ts';
 import { chat, chatConfigured, recentMessages } from './chat.ts';
+import { speak, transcribe, VoiceError } from './voice.ts';
 
 // Versión = commit actual + fecha del último cambio en web/. La PWA la consulta y
 // se recarga sola cuando cambia: un despliegue (o una edición en dev) llega al
@@ -42,11 +43,13 @@ app.use('*', async (c, next) => {
   c.header('Cache-Control', 'no-cache');
 });
 
-// Los POST exigen JSON: un formulario de otra web no puede enviarlo sin
-// preflight CORS (que no respondemos), así que sirve de protección CSRF.
+// Los POST exigen JSON (o WAV en /api/stt): un formulario de otra web no puede
+// enviarlos sin preflight CORS (que no respondemos), así que sirve de protección CSRF.
 app.use('/api/*', async (c, next) => {
-  if (c.req.method === 'POST' && !(c.req.header('content-type') ?? '').startsWith('application/json')) {
-    return c.json({ error: 'Se espera JSON' }, 415);
+  const type = c.req.header('content-type') ?? '';
+  const ok = type.startsWith('application/json') || (c.req.path === '/api/stt' && type.startsWith('audio/wav'));
+  if (c.req.method === 'POST' && !ok) {
+    return c.json({ error: 'Tipo de contenido no admitido' }, 415);
   }
   await next();
 });
@@ -81,6 +84,31 @@ app.post('/api/chat', async (c) => {
     if (e instanceof Anthropic.RateLimitError) return c.json({ error: 'Demasiadas peticiones; espera un poco.' }, 503);
     if (e instanceof Anthropic.APIError) return c.json({ error: `La API ha fallado (${e.status ?? 'red'}).` }, 502);
     return c.json({ error: 'Algo ha fallado en el servidor.' }, 500);
+  }
+});
+
+// Voz: WAV de 16 kHz → texto, y texto → audio con la voz de Claudio.
+app.post('/api/stt', async (c) => {
+  if (Number(c.req.header('content-length') ?? 0) > 3_000_000) return c.json({ error: 'Audio demasiado largo' }, 413);
+  const wav = await c.req.arrayBuffer();
+  if (wav.byteLength > 3_000_000) return c.json({ error: 'Audio demasiado largo' }, 413);
+  try {
+    return c.json({ text: await transcribe(wav) });
+  } catch (e) {
+    if (e instanceof VoiceError) return c.json({ error: e.message }, 502);
+    throw e;
+  }
+});
+
+app.post('/api/tts', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const text = typeof body?.text === 'string' ? body.text : '';
+  try {
+    const audio = await speak(text);
+    return c.body(new Uint8Array(audio), 200, { 'Content-Type': 'audio/mp4' });
+  } catch (e) {
+    if (e instanceof VoiceError) return c.json({ error: e.message }, 400);
+    throw e;
   }
 });
 

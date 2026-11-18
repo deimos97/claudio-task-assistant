@@ -1,4 +1,5 @@
 import { Eyes } from './eyes.js';
+import { Ears, wakeWord } from './voice.js';
 
 const $ = (id) => document.getElementById(id);
 const eyes = new Eyes($('eyes'));
@@ -53,6 +54,8 @@ face.addEventListener('pointerup', () => {
     happyTimer = setTimeout(() => { eyes.setState('idle'); applyNight(); }, 4000);
     return;
   }
+  // Con la voz activada, un toque = "te escucho" (sin decir "Claudio")
+  if (voiceMode === 'idle') { enterCommand(); return; }
   // Un toque = Claudio se alegra un momento
   const prev = eyes.state === 'happy' ? 'idle' : eyes.state;
   eyes.setState('happy');
@@ -218,13 +221,10 @@ function pendingBubble() {
 }
 loadChat();
 
-$('chat-form').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const input = $('chat-input');
-  const text = input.value.trim();
-  if (!text || waiting) return;
+/** Envía un mensaje a Claudio y devuelve su respuesta (o null si falló). */
+async function sendChat(text) {
+  if (!text || waiting) return null;
   waiting = true;
-  input.value = '';
   $('chat-send').disabled = true;
   addMessage({ role: 'user', text, id: null });
   log.appendChild(pendingBubble());
@@ -239,18 +239,29 @@ $('chat-form').addEventListener('submit', async (ev) => {
     waiting = false;
     lastReply = data.reply;
     say(data.reply);
-    await loadChat(); // por si el aviso en vivo no llegó
+    loadChat(); // por si el aviso en vivo no llegó
     if (data.changed) loadUpcoming();
+    return data.reply;
   } catch (e) {
     const msg = e.message || 'No he podido contestar.';
     const pending = log.querySelector('.pending');
     if (pending) { pending.className = 'error'; pending.textContent = msg; }
     say(msg, { error: true });
     react('sleepy', 2500);
+    return null;
   } finally {
     waiting = false;
     $('chat-send').disabled = false;
   }
+}
+
+$('chat-form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const input = $('chat-input');
+  const text = input.value.trim();
+  if (!text || waiting) return;
+  input.value = '';
+  sendChat(text);
 });
 
 // Botón de teclado (móvil): abre y cierra el chat
@@ -260,6 +271,142 @@ $('kbd').addEventListener('click', () => {
   if (open) { log.scrollTop = log.scrollHeight; $('chat-input').focus(); eyes.setState('listening'); }
   else { $('chat-input').blur(); if (eyes.state === 'listening') eyes.setState('idle'); }
 });
+
+// ---------- Voz ----------
+// Modos: idle (espera "Claudio"), command (tras el pitido, espera la orden), busy (transcribiendo/pensando/hablando).
+const VOICE_PREF = 'claudio.voice';
+const COMMAND_WAIT_MS = 7000;
+let ears = null;
+let voiceMode = 'off';
+let commandTimer = null;
+let phraseQueue = Promise.resolve();
+let queued = 0;
+
+function setMicUi() {
+  const mic = $('mic');
+  mic.classList.toggle('on', voiceMode !== 'off');
+  mic.classList.toggle('active', voiceMode === 'command');
+  mic.setAttribute('aria-pressed', String(voiceMode !== 'off'));
+}
+
+async function startVoice() {
+  try {
+    ears ??= new Ears((wav) => {
+      if (queued > 2) return; // demasiada charla de fondo: se descarta
+      queued++;
+      phraseQueue = phraseQueue.then(() => onPhrase(wav)).finally(() => queued--);
+    });
+    ears.onLevel = (speaking) => { if (voiceMode === 'command' && speaking) clearTimeout(commandTimer); };
+    await ears.start();
+    voiceMode = 'idle';
+    try { localStorage.setItem(VOICE_PREF, 'on'); } catch {}
+    setMicUi();
+    return true;
+  } catch (e) {
+    voiceMode = 'off';
+    setMicUi();
+    if (e?.message === 'audio-suspended') say('Toca la pantalla para despertar mis oídos.');
+    else if (e?.name === 'NotAllowedError') say('No tengo permiso para usar el micrófono.', { error: true });
+    else say('No he podido abrir el micrófono.', { error: true });
+    return false;
+  }
+}
+function stopVoice() {
+  ears?.stop();
+  ears = null;
+  voiceMode = 'off';
+  clearTimeout(commandTimer);
+  try { localStorage.setItem(VOICE_PREF, 'off'); } catch {}
+  setMicUi();
+}
+
+function enterCommand() {
+  if (!ears) return;
+  voiceMode = 'command';
+  setMicUi();
+  ears.beep(true);
+  react('listening');
+  clearTimeout(commandTimer);
+  commandTimer = setTimeout(() => {
+    if (voiceMode !== 'command') return;
+    ears.beep(false);
+    backToIdle();
+  }, COMMAND_WAIT_MS);
+}
+function backToIdle() {
+  clearTimeout(commandTimer);
+  if (voiceMode === 'off') return;
+  voiceMode = 'idle';
+  setMicUi();
+  if (eyes.state === 'listening' || eyes.state === 'thinking') react('idle', 0);
+}
+
+async function transcribe(wav) {
+  const r = await fetch('api/stt', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error ?? `Error ${r.status}`);
+  return data.text ?? '';
+}
+
+async function onPhrase(wav) {
+  if (voiceMode === 'off' || voiceMode === 'busy') return;
+  const wasCommand = voiceMode === 'command';
+  if (wasCommand) { clearTimeout(commandTimer); voiceMode = 'busy'; react('thinking'); }
+  let text;
+  try {
+    text = await transcribe(wav);
+  } catch (e) {
+    if (wasCommand) { say(e.message, { error: true }); backToIdle(); }
+    return;
+  }
+  if (voiceMode === 'off') return;
+  let command;
+  if (wasCommand) {
+    command = text;
+  } else {
+    command = wakeWord(text);
+    if (command === null) return;          // charla que no va con Claudio
+    if (command.replace(/[\s.,!?¿¡]/g, '').length < 3) { enterCommand(); return; } // solo "Claudio"
+  }
+  if (!command.replace(/[\s.,!?¿¡]/g, '')) {
+    say('No te he oído bien.');
+    backToIdle();
+    return;
+  }
+  voiceMode = 'busy';
+  setMicUi();
+  const reply = await sendChat(command);
+  if (reply && ears) await speakReply(reply);
+  if (voiceMode === 'off') return;
+  // Si Claudio pregunta algo, se puede contestar sin volver a llamarlo
+  if (reply && /\?\s*$/.test(reply)) enterCommand();
+  else backToIdle();
+}
+
+async function speakReply(text) {
+  try {
+    const r = await fetch('api/tts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+    });
+    if (!r.ok) return;
+    const audio = await r.arrayBuffer();
+    eyes.setState('talking');
+    await ears.play(audio);
+    eyes.setState('idle');
+  } catch { /* sin voz: queda el texto */ }
+}
+
+window.claudio.voice = () => ({ mode: voiceMode, ears }); // depurar desde la consola
+$('mic').addEventListener('click', () => { if (voiceMode === 'off') startVoice(); else stopVoice(); });
+// Si estaba activada, se intenta al cargar; si iOS exige un toque, el primero que llegue la arranca.
+try {
+  if (localStorage.getItem(VOICE_PREF) === 'on') {
+    startVoice().then((ok) => {
+      if (ok) return;
+      document.addEventListener('pointerdown', () => { if (voiceMode === 'off') startVoice(); }, { once: true });
+    });
+  }
+} catch {}
 
 // ---------- Avisos en vivo (SSE) ----------
 function connectStream() {
@@ -283,7 +430,7 @@ async function checkHealth() {
     const h = await r.json();
     dot.className = 'status ok';
     dot.title = `${h.env} · ${h.version}`;
-    if (knownVersion && h.version !== knownVersion && !waiting && !$('chat-input').value) location.reload();
+    if (knownVersion && h.version !== knownVersion && !waiting && !$('chat-input').value && (voiceMode === 'off' || voiceMode === 'idle')) location.reload();
     knownVersion = h.version;
     $('chat-input').placeholder = h.chat ? 'Escribe a Claudio…' : 'Falta la clave de Anthropic';
   } catch {
