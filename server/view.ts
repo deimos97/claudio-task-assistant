@@ -28,6 +28,7 @@ export type Row = {
   category: string | null;
   owner?: Who | null;
   priority?: number;
+  start_at?: string | null;
   detail?: string;
   done?: boolean;
 };
@@ -38,7 +39,7 @@ export const PRIORITY_LABEL = ['Algún día', 'Normal', 'Importante', 'Crítico'
 
 const itemRow = (it: Item): Row => ({
   key: `i${it.id}`, kind: it.kind, id: it.id, title: it.title, at: it.at, end_at: it.end_at,
-  category: it.category, owner: it.owner, priority: it.priority,
+  category: it.category, owner: it.owner, priority: it.priority, start_at: it.start_at,
 });
 const routineRow = (r: RoutineStatus): Row => ({
   key: `r${r.id}`, kind: 'routine', id: r.id, title: r.title, at: r.due_at, category: r.category,
@@ -102,11 +103,15 @@ export function buildView(spec: ViewSpec = {}): View {
 
   const kinds = spec.kinds ?? ['events', 'tasks', 'routines'];
   const until = spec.days ? addDays(today(), spec.days - 1) : null; // days: 1 = hoy
-  const inRange = (r: Row) => !until || (r.at !== null && r.at.slice(0, 10) <= until) || (r.kind === 'task' && !r.at);
+  // Una tarea con margen entra en "los próximos N días" en cuanto toca empezarla
+  const inRange = (r: Row) => !until || (r.at !== null && r.at.slice(0, 10) <= until)
+    || (r.kind === 'task' && (!r.at || (r.start_at != null && r.start_at <= until)));
   const forWho = (r: Row) => !spec.who || !r.owner || r.owner === spec.who;
   const prioOk = (r: Row) => spec.min_priority === undefined || (r.priority ?? 1) >= spec.min_priority;
 
-  const items = (spec.category ? listItems({ category: spec.category }) : upcoming(80))
+  const filteredEarly = !!(spec.category || spec.kinds || spec.days || spec.who || spec.min_priority !== undefined || spec.sort);
+  // "Próximo" no enseña lo que aún no toca empezar; una vista pedida sí (salvo "hoy/N días")
+  const items = (spec.category ? listItems({ category: spec.category }) : upcoming(80, filteredEarly && !spec.days))
     .filter((it) => (it.kind === 'event' ? kinds.includes('events') : kinds.includes('tasks')))
     .filter((it) => it.kind === 'task' || !it.at || it.at >= today() || (it.end_at ?? '') >= today());
   const filtered = !!(spec.category || spec.kinds || spec.days || spec.who || spec.min_priority !== undefined || spec.sort);

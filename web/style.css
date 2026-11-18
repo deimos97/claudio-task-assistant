@@ -342,4 +342,12 @@ body.chat-open .chat {
 .panel .prio.p2 { color: var(--accent); }
 .panel .prio.p3 { color: var(--bad); }
 .panel li.someday .title { color: var(--muted); }
-.debug .who.on { color: var(--accent); border-color: var(--accent); }
+.who {
+  flex: 0 0 auto;
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--line); background: none; color: var(--muted);
+  font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1;
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+}
+.who.on { color: #1f1410; background: var(--accent); border-color: var(--accent); }
+.panel .when.waiting { color: var(--muted); }

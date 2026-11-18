@@ -13,10 +13,11 @@ export type Item = {
   category: string | null;
   owner: 'javier' | 'ana' | null;
   priority: number;
+  start_at: string | null;
   done_at: string | null;
 };
 
-const COLS = 'id, kind, title, at, end_at, notes, category, owner, priority, done_at';
+const COLS = 'id, kind, title, at, end_at, notes, category, owner, priority, start_at, done_at';
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
 
@@ -53,6 +54,14 @@ export function checkOwner(v: unknown): 'javier' | 'ana' | null {
   if (v === 'javier' || v === 'ana') return v;
   throw new InputError('owner debe ser "javier", "ana" o "both"');
 }
+/** Desde cuándo ponerse con una tarea: "YYYY-MM-DD", no después de su fecha límite. */
+function checkStart(v: unknown, deadline: string | null): string | null {
+  const s = checkWhen(v, 'start_at');
+  if (!s) return null;
+  const d = s.slice(0, 10);
+  if (deadline && d > deadline.slice(0, 10)) throw new InputError('start_at no puede ser posterior a la fecha límite (at)');
+  return d;
+}
 /** Prioridad 0–3: 0 algún día · 1 normal · 2 importante · 3 crítico. */
 export function checkPriority(v: unknown, fallback = 1): number {
   if (v === undefined || v === null || v === '') return fallback;
@@ -75,8 +84,9 @@ function mustGet(id: unknown): Item {
   return item;
 }
 
-/** Lo que aparece en "Próximo": tareas abiertas (vencidas incluidas) y eventos que no han pasado. */
-export function upcoming(limit = 40): Item[] {
+/** Lo que aparece en "Próximo": tareas abiertas (vencidas incluidas) y eventos que no han pasado.
+ *  Las tareas con start_at futuro esperan, salvo con includeWaiting (la agenda que ve Claudio). */
+export function upcoming(limit = 40, includeWaiting = false): Item[] {
   const { stamp, date } = localNow();
   return db.prepare(`
     SELECT ${COLS} FROM items
@@ -84,8 +94,9 @@ export function upcoming(limit = 40): Item[] {
       AND (kind = 'task'
            OR at IS NULL
            OR COALESCE(end_at, at) >= CASE WHEN length(COALESCE(end_at, at)) = 10 THEN ? ELSE ? END)
-    ORDER BY at IS NULL, at, id
-    LIMIT ?`).all(date, stamp, limit) as Item[];
+      AND (? OR start_at IS NULL OR start_at <= ?)
+    ORDER BY COALESCE(start_at, at) IS NULL, at IS NULL, at, id
+    LIMIT ?`).all(date, stamp, includeWaiting ? 1 : 0, date, limit) as Item[];
 }
 
 export function listItems(opts: { includeDone?: boolean; from?: string; to?: string; category?: string } = {}): Item[] {
@@ -105,8 +116,9 @@ export function createItem(input: Record<string, unknown>): Item {
   const at = checkWhen(input.at, 'at');
   const end = kind === 'event' ? checkWhen(input.end_at, 'end_at') : null;
   if (kind === 'event' && !at) throw new InputError('un evento necesita fecha (at)');
-  const r = db.prepare('INSERT INTO items (kind, title, at, end_at, notes, category, owner, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(kind, title, at, end, optText(input.notes), checkCategory(input.category), checkOwner(input.owner), checkPriority(input.priority));
+  const start = kind === 'task' ? checkStart(input.start_at, at) : null;
+  const r = db.prepare('INSERT INTO items (kind, title, at, end_at, notes, category, owner, priority, start_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(kind, title, at, end, optText(input.notes), checkCategory(input.category), checkOwner(input.owner), checkPriority(input.priority), start);
   publish('items');
   return getItem(Number(r.lastInsertRowid))!;
 }
@@ -122,11 +134,13 @@ export function updateItem(input: Record<string, unknown>): Item {
     category: 'category' in input ? checkCategory(input.category) : item.category,
     owner: 'owner' in input ? checkOwner(input.owner) : item.owner,
     priority: 'priority' in input ? checkPriority(input.priority) : item.priority,
+    start_at: item.start_at,
   };
+  next.start_at = next.kind === 'task' ? ('start_at' in input ? checkStart(input.start_at, next.at) : item.start_at) : null;
   if (next.kind === 'event' && !next.at) throw new InputError('un evento necesita fecha (at)');
-  db.prepare(`UPDATE items SET kind = ?, title = ?, at = ?, end_at = ?, notes = ?, category = ?, owner = ?, priority = ?,
+  db.prepare(`UPDATE items SET kind = ?, title = ?, at = ?, end_at = ?, notes = ?, category = ?, owner = ?, priority = ?, start_at = ?,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`)
-    .run(next.kind, next.title, next.at, next.end_at, next.notes, next.category, next.owner, next.priority, item.id);
+    .run(next.kind, next.title, next.at, next.end_at, next.notes, next.category, next.owner, next.priority, next.start_at, item.id);
   publish('items');
   return getItem(item.id)!;
 }

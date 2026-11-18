@@ -50,6 +50,7 @@ Cómo usas las herramientas:
 - Dueño (owner): "javier", "ana" o "both". Lo de la casa y lo común es "both". Lo personal (su médico, sus pagos, su trabajo) es de quien te habla, salvo que digan que es para el otro ("recuérdale a Ana…" → ana). "Recuérdame…" o "tengo que…" en primera persona → de quien habla, salvo que sea claramente de la casa (limpieza, compra, gatos). Si no sabes quién te habla y es personal, o dudas de si es de uno o de los dos, pregunta.
 - Cuando alguien pregunta por "lo mío"/"qué tengo", es lo suyo más lo compartido (show con who). No le cuentes a uno lo personal del otro salvo que lo pida.
 - Prioridad (priority, tareas y rutinas): 0 algún día (se puede posponer sin problema) · 1 normal (por defecto) · 2 importante · 3 crítico (si no se hace hay un problema serio: correa de distribución, frenos, pagos o citas críticas o difíciles de conseguir). Ponla tú con criterio; no la digas salvo que sea 2 o 3.
+- Plazos con antelación: si algo tiene que ocurrir antes de X pero hay que gestionarlo con margen (pedir una cita, un trámite, un regalo), la tarea es la gestión ("Pedir cita…"): at = último día para hacerla (X menos la antelación; si no la dicen, 2 semanas para citas), start_at = desde cuándo avisar (unas 2 semanas antes de at) y notes con el límite real y el porqué ("el seguro acaba el 1 de diciembre"). Si at ya ha pasado o está a pocos días, dilo y sube la prioridad a 2 (o 3 si perderlo es grave). Antes de start_at la tarea espera sin salir en pantalla. Cuando digan que ya tienen la cita, completa la tarea y crea el evento.
 - "¿Qué tengo que hacer hoy sí o sí?" → show con days 1, who, sort "priority" (y min_priority 2 si piden solo lo imprescindible), y comenta lo más importante primero.
 - Listas: "apunta leche" o "añade a la compra" → list_add en la lista "Compra", con categoría de sección del súper en cada cosa ("fruta y verdura", "lácteos", "carne y pescado", "panadería", "despensa", "bebidas", "congelados", "limpieza", "higiene", "mascotas"). Lo comprado se tacha con list_check. Para ideas o notas sueltas, listas "Ideas" o "Notas" (o la que pida).
 - Rutinas: si algo se repite cada X tiempo o cada X km/horas, es una rutina (create_routine), no una tarea. Al crearla, si no sabes cuándo se hizo por última vez, pregúntalo; si no lo sabe, se queda como pendiente ya. "Ya he cambiado la arena" → routine_done (fecha de hoy salvo que diga otra). Lecturas de contadores ("el coche tiene 12.300 km") → log_reading.
@@ -85,6 +86,7 @@ const tools: Anthropic.Tool[] = [
         end_at: { type: 'string', description: 'Solo eventos, opcional: fin' },
         notes: { type: 'string' },
         category: { type: 'string', description: 'Ruta en minúsculas: "casa/gatos", "yo/salud"…' },
+        start_at: { type: 'string', description: 'Solo tareas: desde cuándo ponerse ("YYYY-MM-DD"); antes no sale en pantalla. at es el plazo' },
         owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
         priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
@@ -104,6 +106,7 @@ const tools: Anthropic.Tool[] = [
         end_at: { type: 'string' },
         notes: { type: 'string' },
         category: { type: 'string' },
+        start_at: { type: 'string', description: 'Solo tareas: desde cuándo ponerse ("YYYY-MM-DD"); antes no sale en pantalla. at es el plazo' },
         owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
         priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
@@ -344,15 +347,17 @@ export function recentMessages(limit = HISTORY, hours?: number): ChatRow[] {
 /** Agenda, rutinas, listas, contadores y tiempo en texto, para dárselo al modelo en cada turno. */
 async function agendaText(): Promise<string> {
   const out: string[] = [];
+  const now = localNow();
   const cat = (c: string | null) => (c ? ` [${c}]` : '');
   const tags = (x: { owner: Who | null; priority: number }) =>
     ` · ${x.owner ? PEOPLE[x.owner].name : 'los dos'}${x.priority !== 1 ? ` · prioridad ${x.priority} (${PRIORITY_LABEL[x.priority].toLowerCase()})` : ''}`;
 
-  const items = upcoming(60);
+  const items = upcoming(80, true);
   out.push(items.length
     ? `Agenda pendiente (id · tipo · cuándo · título [categoría] · de quién · prioridad si no es normal):\n${items.map((it) => {
-      const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.at) : 'sin fecha';
-      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${tags(it)}${it.notes ? ` (${it.notes})` : ''}`;
+      const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.kind === 'task' ? `límite ${it.at}` : it.at) : 'sin fecha';
+      const start = it.start_at ? ` · empezar desde ${it.start_at}${it.start_at > now.date ? ' (aún no sale en pantalla)' : ''}` : '';
+      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${tags(it)}${start}${it.notes ? ` (${it.notes})` : ''}`;
     }).join('\n')}`
     : 'Agenda pendiente: vacía.');
 

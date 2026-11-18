@@ -58,6 +58,8 @@
 - [x] Quién habla: por voz, el tono medio de la frase (autocorrelación en el navegador; corte 150 Hz ±10, en la duda el dueño del dispositivo); por teclado, el dueño del dispositivo (menú de la pulsación larga) (2026-11-18)
 - [ ] Calibrar el corte de tono con las voces reales de Javier y Ana (las medidas de la pulsación larga enseñan el tono de la última frase)
 - [x] Voz según quién habla: Jorge a Javier (y si no se sabe), Mónica (mejorada) a Ana (2026-11-18)
+- [x] Plazos con antelación ("la limpieza dental antes del 1 de diciembre, pero hay que pedirla con 1–2 semanas"): la tarea es la gestión, con `at` = último día para hacerla y `start_at` = desde cuándo avisar; el límite real va en las notas. Antes de `start_at` no sale en pantalla; después enseña "quedan N días". Si el margen ya pasó, Claudio lo dice y sube la prioridad (migración 005) (2026-11-18)
+- [x] Pie: fecha corta sin año ("Mié - 18-11") y círculo de dispositivo: K (kiosco, compartido) → J → A (2026-11-18)
 - [x] Vistas por prioridad: "¿qué tengo que hacer hoy sí o sí?" → `show` con `days: 1`, `who`, `sort: "priority"` (2026-11-18)
 
 ## Fase 2 — Motor de mantenimiento
@@ -124,6 +126,7 @@
 | 2026-11-18 | Google Calendar y la voz definitiva en castellano pasan a una fase 5 | Ni bloquean el uso diario ni son urgentes; primero listas, tiempo y mantenimiento |
 | 2026-11-18 | Categorías en todo; Claudio elige las obvias y lo dice | Para poder pedir "lo de casa" sin clasificar a mano |
 | 2026-11-18 | Panel dinámico que Claudio controla: en reposo ojos al 36 %, al enseñar algo el panel crece como tarjeta sobre los ojos (13 %) y vuelve solo a los 60 s | Que la pantalla muestre lo que preguntas sin tocarla (solo para hacer scroll); como tarjeta parece que Claudio te lo enseña |
+| 2026-11-18 | Plazos con antelación = tarea de la gestión con fecha límite (`at`) y fecha de aviso (`start_at`), no dos tareas ni un evento | Lo que hay que hacer es pedir la cita; el plazo real va en las notas y la tarea se calla hasta que toca |
 | 2026-11-18 | Prioridad en 4 niveles (0–3) | Pocos niveles: Haiku los asigna con criterio estable y se eligen bien a voz |
 | 2026-11-18 | Claudio es de Javier y Ana; cada cosa es de uno, del otro o de los dos | Ana también lo usa; lo de la casa es compartido |
 | 2026-11-18 | Quién habla: tono de voz (local) + dueño del dispositivo para el teclado; huella de voz solo si el tono falla | Gratis, sin entrenar nada y suficiente para dos voces de distinto tono |

@@ -45,7 +45,7 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 
 - Modelo `claude-haiku-5-5` con `effort: "low"`; bucle manual de herramientas (máx. 8 llamadas por turno).
 - Herramientas:
-  - Agenda: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item` (con `category`, `owner` y `priority`).
+  - Agenda: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item` (con `category`, `owner`, `priority` y, en tareas, `start_at`: desde cuándo avisar; antes no salen en "Próximo" pero Claudio sí las ve).
   - Listas: `list_add` (crea la lista si no existe; no duplica lo pendiente), `list_check`, `list_edit`, `list_remove`, `list_clear`.
   - Mantenimiento: `create_routine`, `update_routine`, `routine_done`, `routine_history`, `delete_routine`, `log_reading`.
   - Pantalla: `show` (ver `docs/interfaz.md`).

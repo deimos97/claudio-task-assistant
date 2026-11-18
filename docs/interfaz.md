@@ -12,12 +12,12 @@ Lee esto si vas a: cambiar la distribución de la pantalla, lo que enseña el pa
 │  panel                │  ← "Próximo", o la vista que pide Claudio (tarjeta que sube)
 │                       │
 ├───────────────────────┤
-│ 🌧️ 17° 💧95%  Miércoles - 18-11-26   ● 🎤 ⌨ │  ← pie de una línea
+│ 🌧️ 17° 💧95%  Mié - 18-11      ● K 🎤 ⌨ │  ← pie de una línea
 └───────────────────────┘
 ```
 
 - Sin barra de arriba: la hora ya la da el iPhone (también en Acceso Guiado).
-- Pie: tiempo (lluvia solo si ≥ 40 %; máximas/mínimas en el `title`), fecha, punto de conexión, micro y teclado. El chat de teclado (móvil) se abre justo encima del pie.
+- Pie: tiempo (lluvia solo si ≥ 40 %; máximas/mínimas en el `title`), fecha corta sin año (la larga en el `title`), punto de conexión, círculo de dispositivo (K kiosco/compartido, J Javier, A Ana; tocar cambia), micro y teclado. El chat de teclado (móvil) se abre justo encima del pie.
 - Escritorio (≥ 900 px con ratón): ojos + panel + pie a la izquierda, chat a la derecha.
 - Los ojos caben en su caja (`.eyes-box`): `Eyes.resize()` ajusta el canvas a lo que quepa con la proporción 40:22 y se recalcula con un `ResizeObserver` mientras la caja encoge o crece.
 
@@ -38,6 +38,8 @@ Lee esto si vas a: cambiar la distribución de la pantalla, lo que enseña el pa
 | Tarea | cuándo (rojo si vencida) | marca hecha |
 | Rutina | cuándo toca | discontinuo: "hecho hoy" |
 | Entrada de lista | — | tacha / destacha |
+
+Tareas con margen (`start_at`): antes de empezar, a la izquierda "desde 18 ene" en gris y en el detalle el plazo; después, el plazo y "quedan N días".
 
 Delante del título: `!` importante (coral), `‼` crítico (rojo); lo de prioridad 0 ("algún día") va en gris.
 

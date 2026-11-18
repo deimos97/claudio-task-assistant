@@ -6,13 +6,14 @@ const eyes = new Eyes($('eyes'));
 window.claudio = { eyes }; // para depurar desde la consola
 
 // ---------- Pie: fecha y tiempo ----------
-// La hora ya la da el iPhone (también en modo kiosco): aquí solo "Miércoles - 18-11-26".
+// La hora ya la da el iPhone (también en modo kiosco): aquí solo "Mié - 18-11".
 const LOCALE = 'es-ES';
 function tickDate() {
   const now = new Date();
-  const wd = now.toLocaleDateString(LOCALE, { weekday: 'long' });
+  const wd = now.toLocaleDateString(LOCALE, { weekday: 'short' }).replace('.', '');
   const p2 = (n) => String(n).padStart(2, '0');
-  $('date').textContent = `${wd[0].toUpperCase()}${wd.slice(1)} - ${p2(now.getDate())}-${p2(now.getMonth() + 1)}-${p2(now.getFullYear() % 100)}`;
+  $('date').textContent = `${wd[0].toUpperCase()}${wd.slice(1)} - ${p2(now.getDate())}-${p2(now.getMonth() + 1)}`;
+  $('date').title = now.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 tickDate();
 setInterval(tickDate, 60_000);
@@ -157,11 +158,19 @@ let turnShown = false; // ¿la respuesta en curso ha enseñado algo?
 function rowEl(r) {
   const li = document.createElement('li');
   if (r.done) li.classList.add('done');
+  // Tarea con margen: antes de empezar, "desde 17 nov"; después, el plazo y los días que quedan
+  const today = isoDate(new Date());
+  const waiting = r.kind === 'task' && r.start_at && r.start_at > today;
+  let margin = null;
+  if (r.kind === 'task' && r.start_at && r.at) {
+    const left = Math.round((new Date(`${r.at.slice(0, 10)}T12:00`) - new Date(`${today}T12:00`)) / DAY);
+    margin = waiting ? `plazo ${whenLabel(r.at).text.toLowerCase()}` : left > 1 ? `quedan ${left} días` : null;
+  }
   if (r.kind !== 'entry') {
-    const w = whenLabel(r.at);
+    const w = whenLabel(waiting ? r.start_at : r.at);
     const when = document.createElement('span');
-    when.className = 'when' + (w.overdue && r.kind !== 'event' ? ' overdue' : '');
-    when.textContent = r.kind === 'routine' && !r.at ? 'Sin estimar' : w.text;
+    when.className = 'when' + (w.overdue && r.kind !== 'event' && !waiting ? ' overdue' : '') + (waiting ? ' waiting' : '');
+    when.textContent = r.kind === 'routine' && !r.at ? 'Sin estimar' : waiting ? `desde ${w.text.toLowerCase()}` : w.text;
     li.appendChild(when);
   }
   const main = document.createElement('span');
@@ -181,7 +190,7 @@ function rowEl(r) {
   // La categoría solo en "Próximo" (las vistas de Claudio ya agrupan); el dueño, si no es de los dos
   const cat = r.category ? r.category.split('/').map((c) => c[0].toUpperCase() + c.slice(1)).join(' › ') : null;
   const owner = r.owner && viewSpec?.who !== r.owner ? PEOPLE[r.owner] : null;
-  const meta = [owner, viewSpec ? null : cat, r.detail].filter(Boolean).join(' · ');
+  const meta = [owner, viewSpec ? null : cat, margin, r.detail].filter(Boolean).join(' · ');
   if (meta) {
     const m = document.createElement('span');
     m.className = 'meta';
@@ -457,17 +466,17 @@ function whoFromPitch(f0) {
 function setWhoUi() {
   const w = deviceWho();
   const b = $('who');
-  b.textContent = `Dispositivo: ${w ? PEOPLE[w] : 'compartido'}`;
+  b.textContent = w ? PEOPLE[w][0] : 'K';
   b.classList.toggle('on', !!w);
+  b.title = w ? `Dispositivo de ${PEOPLE[w]}` : 'Kiosco (compartido): por voz distingue por el tono';
 }
-// Se cambia desde el menú de la pulsación larga sobre la cara (se hace una vez por dispositivo)
-$('who').addEventListener('click', (ev) => {
-  ev.stopPropagation();
+// Círculo del pie: K (kiosco, compartido) → J (Javier) → A (Ana)
+$('who').addEventListener('click', () => {
   const order = [null, 'javier', 'ana'];
   const next = order[(order.indexOf(deviceWho()) + 1) % order.length];
   try { if (next) localStorage.setItem(WHO_PREF, next); else localStorage.removeItem(WHO_PREF); } catch {}
   setWhoUi();
-  showMetrics();
+  say(next ? `Vale, este es el dispositivo de ${PEOPLE[next]}.` : 'Vale, este es el kiosco: os distingo por la voz.');
 });
 setWhoUi();
 window.claudio.who = () => ({ device: deviceWho(), lastPitch, split: PITCH_SPLIT });
