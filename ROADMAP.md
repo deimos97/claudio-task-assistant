@@ -44,7 +44,8 @@
 - [ ] Confirmar la ubicación del tiempo (ahora Madrid)
 - [x] Interfaz: fuera la barra de arriba; tiempo, fecha, punto de conexión, micro y teclado en un pie de una línea; ojos al 36 % en reposo (2026-11-18)
 - [x] Panel dinámico: Claudio "te enseña" lo que pides con la herramienta `show` (una lista, una categoría, lo de N días…): los ojos encogen al 13 %, el panel sube como una tarjeta y lo miran; vuelve a "Próximo" tras 60 s sin tocarlo, al tocar los ojos o la ×, o con una respuesta que no enseña nada (2026-11-18)
-- [ ] Probar el panel dinámico y el pie en el iPhone real
+- [x] Pie y altura comprobados en el iPhone real: la PWA solo enseña `100svh` (848 de 896) (2026-11-18)
+- [ ] Probar el panel dinámico en el iPhone real
 - [x] Sincronización en vivo entre pantallas (SSE, `/api/stream`): agenda y chat aparecen al momento en todas (2026-11-18)
 - [x] Diseño de escritorio básico: ojos + lista a la izquierda, chat a la derecha (≥ 900 px con ratón) (2026-11-18)
 - [x] Eventos y tareas propios de Claudio en "Próximo": vencidas en rojo, tocar el círculo marca una tarea como hecha (2026-11-18)
