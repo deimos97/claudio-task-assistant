@@ -11,10 +11,12 @@ export type Item = {
   end_at: string | null;
   notes: string | null;
   category: string | null;
+  owner: 'javier' | 'ana' | null;
+  priority: number;
   done_at: string | null;
 };
 
-const COLS = 'id, kind, title, at, end_at, notes, category, done_at';
+const COLS = 'id, kind, title, at, end_at, notes, category, owner, priority, done_at';
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
 
@@ -35,11 +37,28 @@ function checkKind(v: unknown): 'event' | 'task' {
   if (v !== 'event' && v !== 'task') throw new InputError('kind debe ser "event" o "task"');
   return v;
 }
-/** Categoría: texto libre corto, en minúsculas ("casa", "gatos"). */
+/** Categoría: ruta en minúsculas de hasta 3 niveles, "casa/gatos" ("casa > gatos" también vale). */
 export function checkCategory(v: unknown): string | null {
   if (v === undefined || v === null || v === '') return null;
   if (typeof v !== 'string') throw new InputError('category debe ser texto');
-  return v.trim().toLowerCase().slice(0, 40) || null;
+  const path = v.toLowerCase().split(/[\/>›]/).map((p) => p.trim()).filter(Boolean).slice(0, 3).map((p) => p.slice(0, 30));
+  return path.join('/') || null;
+}
+/** SQL para "esta categoría o cualquiera de sus subcategorías". */
+export const categoryWhere = (col = 'category') => `(${col} = ? OR ${col} LIKE ? || '/%')`;
+
+/** Dueño: 'javier', 'ana' o null (de los dos). */
+export function checkOwner(v: unknown): 'javier' | 'ana' | null {
+  if (v === undefined || v === null || v === '' || v === 'both' || v === 'ambos') return null;
+  if (v === 'javier' || v === 'ana') return v;
+  throw new InputError('owner debe ser "javier", "ana" o "both"');
+}
+/** Prioridad 0–3: 0 algún día · 1 normal · 2 importante · 3 crítico. */
+export function checkPriority(v: unknown, fallback = 1): number {
+  if (v === undefined || v === null || v === '') return fallback;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > 3) throw new InputError('priority debe ser 0, 1, 2 o 3');
+  return n;
 }
 export function optText(v: unknown, max = 2000): string | null {
   if (v === undefined || v === null || v === '') return null;
@@ -73,7 +92,7 @@ export function listItems(opts: { includeDone?: boolean; from?: string; to?: str
   const where: string[] = [];
   const args: string[] = [];
   if (!opts.includeDone) where.push('done_at IS NULL');
-  if (opts.category) { where.push('category = ?'); args.push(opts.category.toLowerCase()); }
+  if (opts.category) { const c = checkCategory(opts.category)!; where.push(categoryWhere()); args.push(c, c); }
   if (opts.from) { where.push('at >= ?'); args.push(opts.from); }
   if (opts.to) { where.push('at <= ?'); args.push(opts.to); }
   return db.prepare(`SELECT ${COLS} FROM items
@@ -86,8 +105,8 @@ export function createItem(input: Record<string, unknown>): Item {
   const at = checkWhen(input.at, 'at');
   const end = kind === 'event' ? checkWhen(input.end_at, 'end_at') : null;
   if (kind === 'event' && !at) throw new InputError('un evento necesita fecha (at)');
-  const r = db.prepare('INSERT INTO items (kind, title, at, end_at, notes, category) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(kind, title, at, end, optText(input.notes), checkCategory(input.category));
+  const r = db.prepare('INSERT INTO items (kind, title, at, end_at, notes, category, owner, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(kind, title, at, end, optText(input.notes), checkCategory(input.category), checkOwner(input.owner), checkPriority(input.priority));
   publish('items');
   return getItem(Number(r.lastInsertRowid))!;
 }
@@ -101,11 +120,13 @@ export function updateItem(input: Record<string, unknown>): Item {
     end_at: 'end_at' in input ? checkWhen(input.end_at, 'end_at') : item.end_at,
     notes: 'notes' in input ? optText(input.notes) : item.notes,
     category: 'category' in input ? checkCategory(input.category) : item.category,
+    owner: 'owner' in input ? checkOwner(input.owner) : item.owner,
+    priority: 'priority' in input ? checkPriority(input.priority) : item.priority,
   };
   if (next.kind === 'event' && !next.at) throw new InputError('un evento necesita fecha (at)');
-  db.prepare(`UPDATE items SET kind = ?, title = ?, at = ?, end_at = ?, notes = ?, category = ?,
+  db.prepare(`UPDATE items SET kind = ?, title = ?, at = ?, end_at = ?, notes = ?, category = ?, owner = ?, priority = ?,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`)
-    .run(next.kind, next.title, next.at, next.end_at, next.notes, next.category, item.id);
+    .run(next.kind, next.title, next.at, next.end_at, next.notes, next.category, next.owner, next.priority, item.id);
   publish('items');
   return getItem(item.id)!;
 }

@@ -60,3 +60,12 @@ Elegidas el 2026-11-18 (provisionales): **Jorge (mejorada)** en español y **Kok
 - **Volumen con el micro abierto:** iOS puede bajar el volumen o cambiar el altavoz mientras captura. Pendiente de comprobar en el iPhone real.
 - **El remuestreo arrastra la fase entre bloques**: si `pos` queda en [-1, 0) se interpola con la última muestra del bloque anterior. Sin eso salía `NaN` y el VAD no detectaba nada.
 - **Probar sin micro:** en la consola, sustituir `navigator.mediaDevices.getUserMedia` por un `MediaStreamDestination` que reproduzca un WAV generado con `say -o x.wav --file-format=WAVE --data-format=LEI16@16000 "[[slnc 1500]] Claudio. [[slnc 2500]] ¿Qué tengo?"`, y activar el micro.
+
+## Quién habla (Javier o Ana)
+
+- El navegador calcula el **tono medio** de cada frase (`pitchOf` en `web/voice.js`: autocorrelación normalizada en ventanas de 32 ms, mediana de las ventanas con voz).
+- Por debajo de 140 Hz → Javier; por encima de 160 → Ana; entre medias, el dueño del dispositivo (o nadie). Corte ajustable por dispositivo: `localStorage.setItem('claudio.pitchSplit', 160)`.
+- Medido con las voces del Mac: Jorge 120 Hz, Mónica 174 Hz. **Falta calibrar con las voces reales**: la pulsación larga sobre la cara enseña el tono de la última frase.
+- Dueño del dispositivo: botón "Dispositivo: …" en el menú de la pulsación larga (se guarda en `localStorage` `claudio.who`). El kiosco debe quedarse en "compartido".
+- La respuesta se dice con la voz de quien habla: Jorge a Javier (y si no se sabe), **Mónica (mejorada)** a Ana (`PEOPLE` en `server/config.ts`; `CLAUDIO_VOICE_ES_ANA` para cambiarla). En inglés, Kokoro Heart para los dos.
+- Si el tono falla mucho (resfriados, voces parecidas), el siguiente paso es una huella de voz local (modelo de embeddings + unas frases grabadas de cada uno).

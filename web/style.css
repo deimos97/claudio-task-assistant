@@ -336,3 +336,10 @@ body.chat-open .chat {
   font: 12px/1.35 ui-monospace, Menlo, monospace;
   white-space: pre;
 }
+
+/* ---------- Prioridad y dueño ---------- */
+.panel .prio { font-weight: 700; margin-right: 6px; }
+.panel .prio.p2 { color: var(--accent); }
+.panel .prio.p3 { color: var(--bad); }
+.panel li.someday .title { color: var(--muted); }
+.debug .who.on { color: var(--accent); border-color: var(--accent); }

@@ -39,7 +39,9 @@ Lee esto si vas a: cambiar la distribución de la pantalla, lo que enseña el pa
 | Rutina | cuándo toca | discontinuo: "hecho hoy" |
 | Entrada de lista | — | tacha / destacha |
 
-Debajo del título, en gris: la categoría (solo en "Próximo"; las vistas ya agrupan por ella) y el detalle de la rutina ("cada 5 días · última vez 15-11").
+Delante del título: `!` importante (coral), `‼` crítico (rojo); lo de prioridad 0 ("algún día") va en gris.
+
+Debajo del título, en gris: el dueño si no es de los dos (y no es la persona de la vista), la categoría (solo en "Próximo"; las vistas ya agrupan por ella) y el detalle de la rutina ("cada 5 días · última vez 15-11").
 
 ## Monkey noises
 

@@ -8,7 +8,7 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { streamSSE } from 'hono/streaming';
 import Anthropic from '@anthropic-ai/sdk';
-import { DB_FILE, ENV, PORT, ROOT } from './config.ts';
+import { DB_FILE, ENV, isWho, PORT, ROOT } from './config.ts';
 import './db.ts';
 import { subscribe } from './bus.ts';
 import { completeItem, InputError, upcoming } from './items.ts';
@@ -103,7 +103,7 @@ app.post('/api/chat', async (c) => {
   if (text.length > 4000) return c.json({ error: 'Mensaje demasiado largo' }, 400);
   if (!chatConfigured()) return c.json({ error: 'Claudio aún no tiene clave de Anthropic.' }, 503);
   try {
-    return c.json(await chat(text));
+    return c.json(await chat(text, isWho(body?.who) ? body.who : null));
   } catch (e) {
     console.error('chat:', e);
     if (e instanceof Anthropic.AuthenticationError) return c.json({ error: 'La clave de Anthropic no es válida.' }, 502);
@@ -130,7 +130,7 @@ app.post('/api/tts', async (c) => {
   const body = await c.req.json().catch(() => null);
   const text = typeof body?.text === 'string' ? body.text : '';
   try {
-    const { audio, type } = await speak(text);
+    const { audio, type } = await speak(text, isWho(body?.who) ? body.who : null);
     return c.body(new Uint8Array(audio), 200, { 'Content-Type': type });
   } catch (e) {
     if (e instanceof VoiceError) return c.json({ error: e.message }, 400);

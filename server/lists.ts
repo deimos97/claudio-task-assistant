@@ -1,9 +1,9 @@
 // Listas (compra, ideas, notas…): cada una con sus entradas, que se tachan o se borran.
 import { db } from './db.ts';
 import { publish } from './bus.ts';
-import { checkCategory, InputError } from './items.ts';
+import { checkCategory, checkOwner, InputError } from './items.ts';
 
-export type List = { id: number; name: string; category: string | null };
+export type List = { id: number; name: string; category: string | null; owner: 'javier' | 'ana' | null };
 export type Entry = { id: number; list_id: number; text: string; category: string | null; done_at: string | null };
 
 const ENTRY_COLS = 'id, list_id, text, category, done_at';
@@ -16,7 +16,7 @@ function checkName(v: unknown): string {
 
 export function findList(name: unknown): List | undefined {
   if (typeof name !== 'string' || !name.trim()) return undefined;
-  return db.prepare('SELECT id, name, category FROM lists WHERE name = ?').get(name.trim()) as List | undefined;
+  return db.prepare('SELECT id, name, category, owner FROM lists WHERE name = ?').get(name.trim()) as List | undefined;
 }
 function mustList(name: unknown): List {
   const l = findList(name);
@@ -25,7 +25,7 @@ function mustList(name: unknown): List {
 }
 
 export function allLists(): List[] {
-  return db.prepare('SELECT id, name, category FROM lists ORDER BY id').all() as List[];
+  return db.prepare('SELECT id, name, category, owner FROM lists ORDER BY id').all() as List[];
 }
 
 /** Entradas de una lista: pendientes primero; las hechas solo de las últimas 24 h. */
@@ -40,8 +40,10 @@ export function addToList(input: Record<string, unknown>): { list: List; added: 
   const name = checkName(input.list);
   let list = findList(name);
   if (!list) {
-    const r = db.prepare('INSERT INTO lists (name, category) VALUES (?, ?)').run(name, checkCategory(input.list_category));
-    list = { id: Number(r.lastInsertRowid), name, category: checkCategory(input.list_category) };
+    const category = checkCategory(input.list_category);
+    const owner = checkOwner(input.list_owner);
+    const r = db.prepare('INSERT INTO lists (name, category, owner) VALUES (?, ?, ?)').run(name, category, owner);
+    list = { id: Number(r.lastInsertRowid), name, category, owner };
   }
   const raw = Array.isArray(input.entries) ? input.entries : [];
   if (!raw.length) throw new InputError('entries debe tener al menos una entrada');

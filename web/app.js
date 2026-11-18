@@ -107,6 +107,8 @@ function showMetrics() {
     pieAbajo: Math.round(document.querySelector('.foot').getBoundingClientRect().bottom),
     safe: `${cs.paddingTop} / ${cs.paddingBottom}`,
     standalone: navigator.standalone ?? matchMedia('(display-mode: standalone)').matches,
+    tono: lastPitch ? `${lastPitch} Hz (corte ${PITCH_SPLIT})` : '-',
+    dispositivo: deviceWho() ?? 'compartido',
     scrollY,
   };
   probe.remove();
@@ -166,10 +168,20 @@ function rowEl(r) {
   main.className = 'main';
   const title = document.createElement('span');
   title.className = 'title';
-  title.textContent = r.title ?? '';
+  if (r.priority >= 2) {
+    const p = document.createElement('span');
+    p.className = `prio p${r.priority}`;
+    p.textContent = r.priority === 3 ? '‼' : '!';
+    p.title = r.priority === 3 ? 'Crítico' : 'Importante';
+    title.appendChild(p);
+  }
+  if (r.priority === 0) li.classList.add('someday');
+  title.append(r.title ?? '');
   main.appendChild(title);
-  // La categoría solo en "Próximo": en las vistas de Claudio ya agrupa por ella
-  const meta = [viewSpec ? null : r.category, r.detail].filter(Boolean).join(' · ');
+  // La categoría solo en "Próximo" (las vistas de Claudio ya agrupan); el dueño, si no es de los dos
+  const cat = r.category ? r.category.split('/').map((c) => c[0].toUpperCase() + c.slice(1)).join(' › ') : null;
+  const owner = r.owner && viewSpec?.who !== r.owner ? PEOPLE[r.owner] : null;
+  const meta = [owner, viewSpec ? null : cat, r.detail].filter(Boolean).join(' · ');
   if (meta) {
     const m = document.createElement('span');
     m.className = 'meta';
@@ -361,7 +373,7 @@ function pendingBubble() {
 loadChat();
 
 /** Envía un mensaje a Claudio y devuelve su respuesta (o null si falló). */
-async function sendChat(text) {
+async function sendChat(text, who = deviceWho()) {
   if (!text || waiting) return null;
   waiting = true;
   $('chat-send').disabled = true;
@@ -371,7 +383,7 @@ async function sendChat(text) {
   react('thinking');
   try {
     const r = await fetch('api/chat', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, who }),
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error ?? `Error ${r.status}`);
@@ -423,6 +435,43 @@ $('kbd').addEventListener('click', () => {
   else { $('chat-input').blur(); if (eyes.state === 'listening') eyes.setState('idle'); }
 });
 
+// ---------- Quién habla: Javier o Ana ----------
+// Por voz, el tono medio de la frase (grave = Javier, agudo = Ana); si cae en la zona de
+// duda, el dueño del dispositivo. Por teclado, el dueño del dispositivo (botón del pie).
+const WHO_PREF = 'claudio.who';
+const PEOPLE = { javier: 'Javier', ana: 'Ana' };
+// Corte en Hz entre voz grave y aguda; ajustable: localStorage.setItem('claudio.pitchSplit', 160)
+const PITCH_SPLIT = (() => { try { return Number(localStorage.getItem('claudio.pitchSplit')) || 150; } catch { return 150; } })();
+const PITCH_DOUBT = 10;  // ±Hz alrededor del corte en los que no se decide
+let lastPitch = null;
+function deviceWho() {
+  try { const w = localStorage.getItem(WHO_PREF); return w in PEOPLE ? w : null; } catch { return null; }
+}
+function whoFromPitch(f0) {
+  lastPitch = f0;
+  if (!f0) return null;
+  if (f0 < PITCH_SPLIT - PITCH_DOUBT) return 'javier';
+  if (f0 > PITCH_SPLIT + PITCH_DOUBT) return 'ana';
+  return null;
+}
+function setWhoUi() {
+  const w = deviceWho();
+  const b = $('who');
+  b.textContent = `Dispositivo: ${w ? PEOPLE[w] : 'compartido'}`;
+  b.classList.toggle('on', !!w);
+}
+// Se cambia desde el menú de la pulsación larga sobre la cara (se hace una vez por dispositivo)
+$('who').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  const order = [null, 'javier', 'ana'];
+  const next = order[(order.indexOf(deviceWho()) + 1) % order.length];
+  try { if (next) localStorage.setItem(WHO_PREF, next); else localStorage.removeItem(WHO_PREF); } catch {}
+  setWhoUi();
+  showMetrics();
+});
+setWhoUi();
+window.claudio.who = () => ({ device: deviceWho(), lastPitch, split: PITCH_SPLIT });
+
 // ---------- Voz ----------
 // Modos: idle (espera "Claudio"), command (tras el pitido, espera la orden), busy (transcribiendo/pensando/hablando).
 const VOICE_PREF = 'claudio.voice';
@@ -442,10 +491,10 @@ function setMicUi() {
 
 async function startVoice() {
   try {
-    ears ??= new Ears((wav) => {
+    ears ??= new Ears((wav, ms, f0) => {
       if (queued > 2) return; // demasiada charla de fondo: se descarta
       queued++;
-      phraseQueue = phraseQueue.then(() => onPhrase(wav)).finally(() => queued--);
+      phraseQueue = phraseQueue.then(() => onPhrase(wav, f0)).finally(() => queued--);
     });
     ears.onLevel = (speaking) => { if (voiceMode === 'command' && speaking) clearTimeout(commandTimer); };
     await ears.start();
@@ -499,7 +548,7 @@ async function transcribe(wav) {
   return data.text ?? '';
 }
 
-async function onPhrase(wav) {
+async function onPhrase(wav, f0) {
   if (voiceMode === 'off' || voiceMode === 'busy') return;
   const wasCommand = voiceMode === 'command';
   if (wasCommand) { clearTimeout(commandTimer); voiceMode = 'busy'; react('thinking'); }
@@ -526,18 +575,19 @@ async function onPhrase(wav) {
   }
   voiceMode = 'busy';
   setMicUi();
-  const reply = await sendChat(command);
-  if (reply && ears) await speakReply(reply);
+  const who = whoFromPitch(f0) ?? deviceWho();
+  const reply = await sendChat(command, who);
+  if (reply && ears) await speakReply(reply, who);
   if (voiceMode === 'off') return;
   // Si Claudio pregunta algo, se puede contestar sin volver a llamarlo
   if (reply && /\?\s*$/.test(reply)) enterCommand();
   else backToIdle();
 }
 
-async function speakReply(text) {
+async function speakReply(text, who = null) {
   try {
     const r = await fetch('api/tts', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, who }),
     });
     if (!r.ok) return;
     const audio = await r.arrayBuffer();

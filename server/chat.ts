@@ -3,12 +3,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { existsSync, readFileSync } from 'node:fs';
 import { db } from './db.ts';
-import { ANTHROPIC_KEY_FILE, localNow } from './config.ts';
+import { ANTHROPIC_KEY_FILE, localNow, PEOPLE, type Who } from './config.ts';
 import { publish } from './bus.ts';
 import { completeItem, createItem, deleteItem, InputError, listItems, updateItem, upcoming } from './items.ts';
 import { addToList, allLists, checkEntries, clearList, entries, removeEntries, updateEntry } from './lists.ts';
 import { assetsSummary, createRoutine, deleteRoutine, doneRoutine, listRoutines, logReading, routineLog, updateRoutine } from './routines.ts';
-import { buildView, checkSpec, type ViewSpec } from './view.ts';
+import { buildView, checkSpec, PRIORITY_LABEL, type ViewSpec } from './view.ts';
 import { weather, weatherText } from './weather.ts';
 
 const MODEL = 'claude-haiku-5-5';
@@ -33,7 +33,7 @@ function getClient(): Anthropic | null {
 }
 export const chatConfigured = () => apiKey() !== undefined;
 
-const SYSTEM = `Eres Claudio, un pequeño asistente que vive en un iPhone sobre la mesa de Javier, con unos ojos en pixel art.
+const SYSTEM = `Eres Claudio, un pequeño asistente que vive en un iPhone sobre la mesa de casa de Javier y Ana (pareja), con unos ojos en pixel art. Os habla a los dos; Javier es el que más lo usa.
 Llevas su agenda (eventos y tareas), sus listas (la compra, ideas, notas…) y sus rutinas de mantenimiento (cosas que se repiten: "cambiar la arena de los gatos cada 5 días", "revisión del coche cada año o 15.000 km"). Lo guardas tú con las herramientas y se ve en el panel bajo tus ojos.
 
 Cómo respondes:
@@ -46,7 +46,11 @@ Cómo usas las herramientas:
 - Al final de estas instrucciones tienes la agenda pendiente tal como está ahora, con ids. También el tiempo. Contesta con ello y úsalo para cambiar, completar o borrar cosas. Usa list_items solo para lo ya hecho o para buscar fuera de esa lista. No inventes ids.
 - Evento = algo con día y hora concretos (citas, quedadas): si te dan hora, es un evento aunque suene a tarea ("el dentista el jueves a las 17:00"). Tarea = algo por hacer, con o sin fecha límite.
 - Si falta un dato imprescindible (p. ej. la hora de una cita), pregúntalo; si no lo es, apúntalo sin fecha y dilo.
-- Categorías: pon siempre category (una o dos palabras en minúsculas: "casa", "gatos", "coche", "salud", "trabajo", "compras"…). Reutiliza las que ya existen si encajan. Si la eliges tú (no te la han dicho), dilo siempre en la respuesta, de pasada ("lo pongo en gatos"). Si algo de la agenda no tiene categoría y lo tocas, pónsela.
+- Categorías: pon siempre category, en minúsculas y como ruta de hasta 3 niveles: "casa/gatos", "casa/limpieza", "yo/salud", "yo/economía", "coche"… Pedir "casa" incluye todas sus subcategorías. Reutiliza las que ya existen si encajan. Si la eliges tú (no te la han dicho), dilo siempre en la respuesta, de pasada ("lo pongo en gatos"). Si algo de la agenda no tiene categoría y lo tocas, pónsela.
+- Dueño (owner): "javier", "ana" o "both". Lo de la casa y lo común es "both". Lo personal (su médico, sus pagos, su trabajo) es de quien te habla, salvo que digan que es para el otro ("recuérdale a Ana…" → ana). "Recuérdame…" o "tengo que…" en primera persona → de quien habla, salvo que sea claramente de la casa (limpieza, compra, gatos). Si no sabes quién te habla y es personal, o dudas de si es de uno o de los dos, pregunta.
+- Cuando alguien pregunta por "lo mío"/"qué tengo", es lo suyo más lo compartido (show con who). No le cuentes a uno lo personal del otro salvo que lo pida.
+- Prioridad (priority, tareas y rutinas): 0 algún día (se puede posponer sin problema) · 1 normal (por defecto) · 2 importante · 3 crítico (si no se hace hay un problema serio: correa de distribución, frenos, pagos o citas críticas o difíciles de conseguir). Ponla tú con criterio; no la digas salvo que sea 2 o 3.
+- "¿Qué tengo que hacer hoy sí o sí?" → show con days 1, who, sort "priority" (y min_priority 2 si piden solo lo imprescindible), y comenta lo más importante primero.
 - Listas: "apunta leche" o "añade a la compra" → list_add en la lista "Compra", con categoría de sección del súper en cada cosa ("fruta y verdura", "lácteos", "carne y pescado", "panadería", "despensa", "bebidas", "congelados", "limpieza", "higiene", "mascotas"). Lo comprado se tacha con list_check. Para ideas o notas sueltas, listas "Ideas" o "Notas" (o la que pida).
 - Rutinas: si algo se repite cada X tiempo o cada X km/horas, es una rutina (create_routine), no una tarea. Al crearla, si no sabes cuándo se hizo por última vez, pregúntalo; si no lo sabe, se queda como pendiente ya. "Ya he cambiado la arena" → routine_done (fecha de hoy salvo que diga otra). Lecturas de contadores ("el coche tiene 12.300 km") → log_reading.
 - Enseñar: si te piden ver algo ("enséñame lo de casa", "¿qué hay en la compra?", "¿qué tengo esta semana?"), o acabas de cambiar una lista o una categoría, usa show para que el panel lo enseñe. Entonces no lo enumeres en tu respuesta: un comentario corto basta ("Aquí tienes lo de casa: 3 cosas, la arena toca mañana").
@@ -65,7 +69,7 @@ const tools: Anthropic.Tool[] = [
         include_done: { type: 'boolean', description: 'Incluir también las tareas ya hechas' },
         from: { type: 'string', description: 'Desde esta fecha ("YYYY-MM-DD" o "YYYY-MM-DDTHH:MM")' },
         to: { type: 'string', description: 'Hasta esta fecha' },
-        category: { type: 'string' },
+        category: { type: 'string', description: 'Incluye sus subcategorías' },
       },
     },
   },
@@ -80,9 +84,11 @@ const tools: Anthropic.Tool[] = [
         at: { type: 'string', description: 'Evento: inicio. Tarea: fecha límite (opcional). "YYYY-MM-DD" o "YYYY-MM-DDTHH:MM"' },
         end_at: { type: 'string', description: 'Solo eventos, opcional: fin' },
         notes: { type: 'string' },
-        category: { type: 'string', description: 'Categoría en minúsculas: "casa", "gatos", "salud"…' },
+        category: { type: 'string', description: 'Ruta en minúsculas: "casa/gatos", "yo/salud"…' },
+        owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
+        priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
-      required: ['kind', 'title', 'category'],
+      required: ['kind', 'title', 'category', 'owner'],
     },
   },
   {
@@ -98,6 +104,8 @@ const tools: Anthropic.Tool[] = [
         end_at: { type: 'string' },
         notes: { type: 'string' },
         category: { type: 'string' },
+        owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
+        priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
       required: ['id'],
     },
@@ -128,6 +136,7 @@ const tools: Anthropic.Tool[] = [
       properties: {
         list: { type: 'string', description: 'Nombre de la lista' },
         list_category: { type: 'string', description: 'Solo al crear una lista nueva: su categoría' },
+        list_owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'Solo al crear una lista nueva: de quién es' },
         entries: {
           type: 'array',
           items: { type: 'object', properties: { text: { type: 'string' }, category: { type: 'string' } }, required: ['text'] },
@@ -187,8 +196,10 @@ const tools: Anthropic.Tool[] = [
         last_done_at: { type: 'string', description: 'Última vez que se hizo, "YYYY-MM-DD"' },
         last_done_value: { type: 'number', description: 'Valor del contador la última vez' },
         notes: { type: 'string' },
+        owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
+        priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
-      required: ['title', 'category'],
+      required: ['title', 'category', 'owner'],
     },
   },
   {
@@ -200,6 +211,8 @@ const tools: Anthropic.Tool[] = [
         id: { type: 'integer' }, title: { type: 'string' }, category: { type: 'string' },
         every_days: { type: 'integer' }, every_amount: { type: 'number' }, asset: { type: 'string' }, unit: { type: 'string' },
         last_done_at: { type: 'string' }, last_done_value: { type: 'number' }, notes: { type: 'string' },
+        owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
+        priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
       required: ['id'],
     },
@@ -248,9 +261,12 @@ const tools: Anthropic.Tool[] = [
         title: { type: 'string', description: 'Título corto del panel; si no, uno automático' },
         list: { type: 'string', description: 'Enseñar una lista ("Compra")' },
         lists: { type: 'boolean', description: 'Enseñar todas las listas' },
-        category: { type: 'string', description: 'Solo esta categoría ("casa")' },
+        category: { type: 'string', description: 'Solo esta categoría y sus subcategorías ("casa")' },
         kinds: { type: 'array', items: { type: 'string', enum: ['events', 'tasks', 'routines'] } },
-        days: { type: 'integer', description: 'Solo lo de los próximos N días ("esta semana" = 7)' },
+        days: { type: 'integer', description: 'Solo lo de los próximos N días, con lo vencido ("hoy" = 1, "esta semana" = 7)' },
+        who: { type: 'string', enum: ['javier', 'ana'], description: 'Lo de esta persona más lo compartido' },
+        min_priority: { type: 'integer', enum: [0, 1, 2, 3] },
+        sort: { type: 'string', enum: ['priority'], description: 'Agrupar por prioridad (lo crítico arriba)' },
       },
     },
   },
@@ -316,11 +332,11 @@ export function usageSummary() {
   };
 }
 
-type ChatRow = { id: number; role: 'user' | 'assistant'; text: string; created_at: string };
+type ChatRow = { id: number; role: 'user' | 'assistant'; text: string; who: Who | null; created_at: string };
 
 export function recentMessages(limit = HISTORY, hours?: number): ChatRow[] {
   const since = hours ? new Date(Date.now() - hours * 3600_000).toISOString() : '';
-  const rows = db.prepare('SELECT id, role, text, created_at FROM chat_messages WHERE created_at >= ? ORDER BY id DESC LIMIT ?')
+  const rows = db.prepare('SELECT id, role, text, who, created_at FROM chat_messages WHERE created_at >= ? ORDER BY id DESC LIMIT ?')
     .all(since, limit) as ChatRow[];
   return rows.reverse();
 }
@@ -329,26 +345,28 @@ export function recentMessages(limit = HISTORY, hours?: number): ChatRow[] {
 async function agendaText(): Promise<string> {
   const out: string[] = [];
   const cat = (c: string | null) => (c ? ` [${c}]` : '');
+  const tags = (x: { owner: Who | null; priority: number }) =>
+    ` · ${x.owner ? PEOPLE[x.owner].name : 'los dos'}${x.priority !== 1 ? ` · prioridad ${x.priority} (${PRIORITY_LABEL[x.priority].toLowerCase()})` : ''}`;
 
   const items = upcoming(60);
   out.push(items.length
-    ? `Agenda pendiente (id · tipo · cuándo · título [categoría]):\n${items.map((it) => {
+    ? `Agenda pendiente (id · tipo · cuándo · título [categoría] · de quién · prioridad si no es normal):\n${items.map((it) => {
       const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.at) : 'sin fecha';
-      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${it.notes ? ` (${it.notes})` : ''}`;
+      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${tags(it)}${it.notes ? ` (${it.notes})` : ''}`;
     }).join('\n')}`
     : 'Agenda pendiente: vacía.');
 
   const routines = listRoutines();
   out.push(routines.length
     ? `Rutinas (id · título [categoría] · cada cuánto · toca):\n${routines.map((r) =>
-      `- id ${r.id} · ${r.title}${cat(r.category)} · ${r.detail} · toca ${r.due_at ?? 'sin estimar (faltan lecturas)'}`).join('\n')}`
+      `- id ${r.id} · ${r.title}${cat(r.category)}${tags(r)} · ${r.detail} · toca ${r.due_at ?? 'sin estimar (faltan lecturas)'}`).join('\n')}`
     : 'Rutinas: ninguna.');
 
   const lists = allLists();
   out.push(lists.length
     ? `Listas (entradas pendientes con id):\n${lists.map((l) => {
       const es = entries(l.id);
-      return `- ${l.name}${cat(l.category)}: ${es.length ? es.map((e) => `id ${e.id} ${e.text}${cat(e.category)}`).join('; ') : 'vacía'}`;
+      return `- ${l.name}${cat(l.category)}${l.owner ? ` (de ${PEOPLE[l.owner].name})` : ''}: ${es.length ? es.map((e) => `id ${e.id} ${e.text}${cat(e.category)}`).join('; ') : 'vacía'}`;
     }).join('\n')}`
     : 'Listas: ninguna.');
 
@@ -364,9 +382,9 @@ async function agendaText(): Promise<string> {
   out.push(weatherText(await weather()));
   return out.join('\n\n');
 }
-function save(role: 'user' | 'assistant', text: string): ChatRow {
-  const r = db.prepare('INSERT INTO chat_messages (role, text) VALUES (?, ?)').run(role, text);
-  const row = db.prepare('SELECT id, role, text, created_at FROM chat_messages WHERE id = ?').get(Number(r.lastInsertRowid)) as ChatRow;
+function save(role: 'user' | 'assistant', text: string, who: Who | null = null): ChatRow {
+  const r = db.prepare('INSERT INTO chat_messages (role, text, who) VALUES (?, ?, ?)').run(role, text, who);
+  const row = db.prepare('SELECT id, role, text, who, created_at FROM chat_messages WHERE id = ?').get(Number(r.lastInsertRowid)) as ChatRow;
   publish('chat', row);
   return row;
 }
@@ -374,29 +392,31 @@ function save(role: 'user' | 'assistant', text: string): ChatRow {
 // Un turno cada vez: la conversación es única y compartida entre pantallas.
 let queue: Promise<unknown> = Promise.resolve();
 export type ChatResult = { reply: string; changed: boolean; view: ViewSpec | null };
-export function chat(text: string): Promise<ChatResult> {
-  const run = queue.then(() => turn(text));
+/** `who`: quién habla (por el tono de voz o el dueño del dispositivo); null si no se sabe. */
+export function chat(text: string, who: Who | null = null): Promise<ChatResult> {
+  const run = queue.then(() => turn(text, who));
   queue = run.catch(() => {});
   return run;
 }
 
-async function turn(text: string): Promise<ChatResult> {
+async function turn(text: string, who: Who | null): Promise<ChatResult> {
   const c = getClient();
   if (!c) throw new Error(`Falta la clave de Anthropic (${ANTHROPIC_KEY_FILE})`);
 
   // Historial: solo texto; debe empezar por un mensaje del usuario.
   const history = recentMessages(HISTORY, HISTORY_HOURS);
   while (history.length && history[0].role !== 'user') history.shift();
-  save('user', text);
+  save('user', text, who);
   const messages: Anthropic.MessageParam[] = [
-    ...history.map((m) => ({ role: m.role, content: m.text })),
+    // Cada mensaje de usuario lleva quién lo dijo: la conversación es de los dos
+    ...history.map((m) => ({ role: m.role, content: m.role === 'user' && m.who ? `[${PEOPLE[m.who].name}] ${m.text}` : m.text })),
     { role: 'user', content: text },
   ];
 
   const now = localNow();
   const system: Anthropic.TextBlockParam[] = [
     { type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: `Ahora: ${now.weekday} ${now.stamp} (Europe/Madrid).\n\n${await agendaText()}` },
+    { type: 'text', text: `Ahora: ${now.weekday} ${now.stamp} (Europe/Madrid).\nTe habla: ${who ? PEOPLE[who].name : 'no se sabe quién (Javier o Ana)'}.\n\n${await agendaText()}` },
   ];
 
   let changed = false;

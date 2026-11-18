@@ -17,6 +17,14 @@ export const BACKUPS_KEPT = 14;
 // Clave de Anthropic: la variable de entorno o este fichero (chmod 600), común a dev y prod.
 export const ANTHROPIC_KEY_FILE = join(CLAUDIO_HOME, 'anthropic-key');
 
+// Las dos personas que usan a Claudio. owner NULL en la BD = de los dos.
+export const PEOPLE = {
+  javier: { name: 'Javier', voice: process.env.CLAUDIO_VOICE_ES ?? 'Jorge (Enhanced)' },
+  ana: { name: 'Ana', voice: process.env.CLAUDIO_VOICE_ES_ANA ?? 'Mónica (Enhanced)' },
+} as const;
+export type Who = keyof typeof PEOPLE;
+export const isWho = (v: unknown): v is Who => v === 'javier' || v === 'ana';
+
 /** Fecha y hora local de Madrid como "YYYY-MM-DDTHH:MM" (y el día de la semana). */
 export function localNow(d = new Date()): { stamp: string; date: string; weekday: string } {
   const parts = Object.fromEntries(

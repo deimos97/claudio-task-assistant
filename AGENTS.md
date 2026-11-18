@@ -1,8 +1,8 @@
 # Claudio — asistente de escritorio
 
-Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
+Asistente de Javier y Ana (pareja) que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado (2026-11-18): **fase 1 y base de la fase 2 hechas en dev**. En producción: agenda, chat con Haiku por teclado y voz (wake word "Claudio", whisper, voz Jorge/Kokoro Heart), avisos en vivo y gasto. Solo en dev, pendiente de PR: listas (compra…), categorías, rutinas de mantenimiento (por tiempo y por uso), tiempo en el pie y panel dinámico que Claudio controla. Producción se despliega sola al mergear a `main`. Google Calendar y la voz definitiva en castellano, en la fase 5. Ver `ROADMAP.md`.
+Estado (2026-11-18): en producción, fase 1 y base de la fase 2: agenda, listas, categorías, rutinas de mantenimiento, tiempo, panel dinámico, chat con Haiku por teclado y voz. Solo en dev, pendiente de PR: dos personas (Javier y Ana: dueño de cada cosa y quién habla por el tono de voz, Jorge o Mónica al contestar), subcategorías y prioridad 0–3. Producción se despliega sola al mergear a `main`. Google Calendar y la voz definitiva en castellano, en la fase 5. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -29,7 +29,7 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 
 ```
 server/index.ts        API (health, upcoming, items, chat, stream) y sirve web/
-server/config.ts       rutas (datos en ~/.claudio/<entorno>/), hora local de Madrid
+server/config.ts       rutas (datos en ~/.claudio/<entorno>/), hora local de Madrid, las dos personas (PEOPLE) y su voz
 server/db.ts           SQLite (node:sqlite) + migraciones + copias automáticas
 server/migrations/     NNN_nombre.sql, se aplican solas al arrancar
 server/items.ts        eventos y tareas: consultas y validación (y `checkCategory`)
@@ -86,7 +86,9 @@ Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/
 
 ## Conceptos del dominio
 
-- **Categoría:** texto libre en minúsculas en eventos, tareas, listas, entradas y rutinas ("casa", "gatos"). La elige Claudio si no se dice.
+- **Categoría:** ruta en minúsculas de hasta 3 niveles en eventos, tareas, listas, entradas y rutinas ("casa/gatos", "yo/salud"). Filtrar por "casa" incluye sus subcategorías. La elige Claudio si no se dice.
+- **Dueño (`owner`):** `javier`, `ana` o NULL (de los dos). **Quién habla** se sabe por el tono de voz o por el dueño del dispositivo; ver `docs/voz.md`.
+- **Prioridad:** 0 algún día · 1 normal (por defecto) · 2 importante · 3 crítico.
 - **Lista:** compra, ideas, notas… con entradas que se tachan. En la compra, la categoría es la sección del súper.
 - **Activo:** coche, bici, casa…
 - **Contador:** km, horas de motor, lavados…

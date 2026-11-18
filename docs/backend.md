@@ -45,13 +45,14 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 
 - Modelo `claude-haiku-5-5` con `effort: "low"`; bucle manual de herramientas (máx. 8 llamadas por turno).
 - Herramientas:
-  - Agenda: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item` (con `category`).
+  - Agenda: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item` (con `category`, `owner` y `priority`).
   - Listas: `list_add` (crea la lista si no existe; no duplica lo pendiente), `list_check`, `list_edit`, `list_remove`, `list_clear`.
   - Mantenimiento: `create_routine`, `update_routine`, `routine_done`, `routine_history`, `delete_routine`, `log_reading`.
   - Pantalla: `show` (ver `docs/interfaz.md`).
   - Un error de validación vuelve al modelo como `tool_result` con `is_error`, para que lo corrija o lo diga.
 - Una sola conversación para todas las pantallas; los turnos se atienden de uno en uno. Se guardan solo el texto del usuario y la respuesta final (`chat_messages`); el contexto son los últimos 20 mensajes **de las últimas 3 horas**.
 - En cada turno se le da **una foto del estado con ids** (bloque dinámico del `system`, detrás de la parte en caché): agenda pendiente, rutinas con su próxima fecha, listas con sus entradas pendientes, contadores con su ritmo, categorías en uso y el tiempo. Contesta con ella sin llamar a `list_items`, y sabe los ids para cambiar cosas.
+- **Quién habla:** `POST /api/chat` acepta `who` (`javier`/`ana`). Va en el bloque dinámico ("Te habla: Ana") y se guarda en `chat_messages.who`; en el historial, cada mensaje de usuario lleva delante `[Ana]` o `[Javier]`.
 - La fecha y hora actual van en un segundo bloque del `system`, después del prompt fijo (que lleva `cache_control`).
 
 ## Rutinas (motor de mantenimiento, `server/routines.ts`)
@@ -81,7 +82,7 @@ Con listas, rutinas y `show` (2026-11-18, 6 órdenes de prueba): ~0,001 $ por me
 | `POST /api/routines/:id/done` | rutina hecha hoy |
 | `POST /api/entries/:id/done` | tacha una entrada de lista (`{"done": false}` la destacha) |
 | `GET /api/weather` | tiempo ahora, hoy y mañana (Open-Meteo, caché 15 min) |
-| `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text}` → `{reply, changed, view}` |
+| `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text, who?}` → `{reply, changed, view}` |
 | `GET /api/usage` | gasto de la API de Anthropic: hoy, este mes y total (llamadas, tokens, USD) |
 | `GET /api/stream` | SSE: `items` (cambió algo), `chat` (mensaje nuevo), `show` (Claudio enseña una vista), `ping` cada 25 s |
 

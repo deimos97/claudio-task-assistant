@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { PEOPLE, type Who } from './config.ts';
 
 const run = promisify(execFile);
 
@@ -12,7 +13,8 @@ const WHISPER_URL = process.env.CLAUDIO_WHISPER_URL ?? 'http://127.0.0.1:3120/in
 // modelo turbo transcribe igual de bien el inglés aunque se le diga "es".
 const STT_LANGUAGE = process.env.CLAUDIO_STT_LANGUAGE ?? 'es';
 // Español: voz del Mac (`say`). Inglés: Kokoro (servicio local en :3121); si no responde, `say`.
-const SAY_VOICE_ES = process.env.CLAUDIO_VOICE_ES ?? 'Jorge (Enhanced)';
+// Voz en español según quién habla: Jorge a Javier (y si no se sabe), Mónica a Ana (config.ts).
+const SAY_VOICE_ES = PEOPLE.javier.voice;
 const SAY_VOICE_EN = process.env.CLAUDIO_VOICE_EN_FALLBACK ?? 'Samantha';
 const KOKORO_URL = process.env.CLAUDIO_KOKORO_URL ?? 'http://127.0.0.1:3121/tts';
 const KOKORO_VOICE_EN = process.env.CLAUDIO_VOICE_EN ?? 'af_heart';
@@ -49,7 +51,7 @@ export function guessLanguage(text: string): 'es' | 'en' {
 export type Speech = { audio: Buffer; type: 'audio/mp4' | 'audio/wav' };
 
 /** Texto → audio con la voz de Claudio (español: Jorge; inglés: Heart). */
-export async function speak(text: string): Promise<Speech> {
+export async function speak(text: string, who: Who | null = null): Promise<Speech> {
   const clean = text
     .replace(/[*_`#>]/g, '')                       // restos de markdown
     .replace(/\p{Extended_Pictographic}/gu, '')    // emojis
@@ -65,7 +67,7 @@ export async function speak(text: string): Promise<Speech> {
       console.error('voz: Kokoro no responde, uso say', e instanceof Error ? e.message : e);
     }
   }
-  return { audio: await say(clean, lang === 'en' ? SAY_VOICE_EN : SAY_VOICE_ES), type: 'audio/mp4' };
+  return { audio: await say(clean, lang === 'en' ? SAY_VOICE_EN : who ? PEOPLE[who].voice : SAY_VOICE_ES), type: 'audio/mp4' };
 }
 
 async function kokoro(text: string, voice: string, lang: string): Promise<Buffer> {

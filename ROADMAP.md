@@ -50,6 +50,16 @@
 - [x] Diseño de escritorio básico: ojos + lista a la izquierda, chat a la derecha (≥ 900 px con ratón) (2026-11-18)
 - [x] Eventos y tareas propios de Claudio en "Próximo": vencidas en rojo, tocar el círculo marca una tarea como hecha (2026-11-18)
 
+## Fase 1b — Dos personas, subcategorías y prioridad
+
+- [x] Subcategorías: la categoría es una ruta "casa/gatos", "yo/salud"; pedir "casa" incluye todo lo de dentro y la vista agrupa por subcategoría (2026-11-18)
+- [x] Prioridad 0–3 en tareas y rutinas: 0 algún día (gris) · 1 normal (por defecto) · 2 importante (!) · 3 crítico (‼ en rojo) (2026-11-18)
+- [x] Dueño: Javier, Ana o los dos (migración 004). Lo de la casa, de los dos; "recuérdame…" de quien habla; "recuérdale a Ana…" de Ana; si Haiku duda, pregunta. Probado con la API real (2026-11-18)
+- [x] Quién habla: por voz, el tono medio de la frase (autocorrelación en el navegador; corte 150 Hz ±10, en la duda el dueño del dispositivo); por teclado, el dueño del dispositivo (menú de la pulsación larga) (2026-11-18)
+- [ ] Calibrar el corte de tono con las voces reales de Javier y Ana (las medidas de la pulsación larga enseñan el tono de la última frase)
+- [x] Voz según quién habla: Jorge a Javier (y si no se sabe), Mónica (mejorada) a Ana (2026-11-18)
+- [x] Vistas por prioridad: "¿qué tengo que hacer hoy sí o sí?" → `show` con `days: 1`, `who`, `sort: "priority"` (2026-11-18)
+
 ## Fase 2 — Motor de mantenimiento
 
 - [x] Modelo: activos, contadores, lecturas, rutinas (tiempo / uso / lo primero) e historial (`003_listas_rutinas.sql`) (2026-11-18)
@@ -114,6 +124,10 @@
 | 2026-11-18 | Google Calendar y la voz definitiva en castellano pasan a una fase 5 | Ni bloquean el uso diario ni son urgentes; primero listas, tiempo y mantenimiento |
 | 2026-11-18 | Categorías en todo; Claudio elige las obvias y lo dice | Para poder pedir "lo de casa" sin clasificar a mano |
 | 2026-11-18 | Panel dinámico que Claudio controla: en reposo ojos al 36 %, al enseñar algo el panel crece como tarjeta sobre los ojos (13 %) y vuelve solo a los 60 s | Que la pantalla muestre lo que preguntas sin tocarla (solo para hacer scroll); como tarjeta parece que Claudio te lo enseña |
+| 2026-11-18 | Prioridad en 4 niveles (0–3) | Pocos niveles: Haiku los asigna con criterio estable y se eligen bien a voz |
+| 2026-11-18 | Claudio es de Javier y Ana; cada cosa es de uno, del otro o de los dos | Ana también lo usa; lo de la casa es compartido |
+| 2026-11-18 | Quién habla: tono de voz (local) + dueño del dispositivo para el teclado; huella de voz solo si el tono falla | Gratis, sin entrenar nada y suficiente para dos voces de distinto tono |
+| 2026-11-18 | Jorge contesta a Javier y Mónica a Ana | Así se oye a quién ha entendido Claudio que le habla |
 | 2026-11-18 | Lo repetitivo es una "rutina" (tabla `routines`), no una tarea que se clona | Una sola fila con su historial; la siguiente fecha se calcula, no se guarda |
 | 2026-11-18 | Categorías como texto libre en minúsculas, sin tabla aparte | Claudio las elige y reutiliza las que ve en uso; no hace falta gestionarlas |
 | 2026-11-18 | Dominio propio en vez de Tailscale: `claudio.` / `claudio-dev.hotwheelsandbids.com`, nginx de la Raspberry como proxy al Mac mini; red local sin login, fuera con login del home-portal | Reutiliza la infraestructura que ya existe (nginx, certbot, Pi-hole, login) y no exige app en cada dispositivo |
