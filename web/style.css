@@ -34,10 +34,10 @@ html, body {
 body {
   position: fixed;
   top: 0; left: 0; right: 0;
-  /* En la PWA no hay barras del navegador: la altura buena es la "grande" (lvh), la
-     pantalla entera. 100vh de respaldo para navegadores viejos. */
+  /* Altura = lo que de verdad se ve (svh). En la PWA del iPhone 11 (iOS 26) lvh mide
+     896 pero la vista web solo enseña 848: con lvh el pie quedaba tapado por abajo. */
   height: 100vh;
-  height: 100lvh;
+  height: 100svh;
   display: flex;
   flex-direction: column;
   padding: calc(env(safe-area-inset-top) + 6px) 16px 0;
