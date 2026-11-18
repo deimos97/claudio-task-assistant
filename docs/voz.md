@@ -10,7 +10,7 @@ micro del iPhone ─► web/voice.js: remuestreo a 16 kHz + VAD por energía ─
    ─► ¿empieza por "Claudio"? ─ no → se descarta
                               ─ "Claudio" solo → pitido, ojos escuchando, 7 s para la orden
                               ─ "Claudio, haz X" → X va directo al chat
-   ─► respuesta ─► POST /api/tts ─► `say` (AAC) ─► altavoz (sin escuchar mientras suena)
+   ─► respuesta ─► POST /api/tts ─► español: `say` Jorge (AAC) · inglés: Kokoro Heart (WAV) ─► altavoz (sin escuchar mientras suena)
    ─► si la respuesta acaba en "?", pitido y escucha la contestación sin wake word
 ```
 
@@ -25,7 +25,8 @@ micro del iPhone ─► web/voice.js: remuestreo a 16 kHz + VAD por energía ─
 | whisper.cpp (`brew install whisper-cpp`) | `whisper-server`, LaunchAgent `com.deimos97.claudio.whisper`, log `~/Library/Logs/claudio-whisper.log` |
 | Modelos | `~/.claudio/models/ggml-large-v3-turbo-q5_0.bin` (548 MB) y `ggml-silero-v5.1.2.bin` (VAD) |
 | Instalar / reinstalar | `scripts/install-whisper.sh` (descarga lo que falte) |
-| Voces | `say -v '?'`; por defecto `Reed (Spanish (Spain))` y `Reed (English (US))`. Cambiar con `CLAUDIO_VOICE_ES` / `CLAUDIO_VOICE_EN` en el LaunchAgent |
+| Voz en español | `say -v "Jorge (Enhanced)"` (descargada en Ajustes → Accesibilidad → Contenido leído → Gestionar voces). Cambiar con `CLAUDIO_VOICE_ES` |
+| Voz en inglés | Kokoro `af_heart`: `scripts/kokoro-server.py` como LaunchAgent `com.deimos97.claudio.kokoro` en 127.0.0.1:3121, venv `~/.claudio/tts-venv`, modelos `~/.claudio/models/tts/`, log `~/Library/Logs/claudio-kokoro.log`. Instalar/reinstalar: `scripts/install-tts.sh`. Cambiar con `CLAUDIO_VOICE_EN`. Si no responde, `say` Samantha (`CLAUDIO_VOICE_EN_FALLBACK`) |
 
 Dev y prod usan el mismo whisper. Ajustes en `server/voice.ts`; los del VAD del navegador, arriba de `web/voice.js`.
 
@@ -39,14 +40,17 @@ Muestras en `web/_voces/` (fuera de git; en dev: `/_voces/`). Todas locales y gr
 | Piper (neuronal) | es: davefx, sharvard, carlfm; en: ryan | 0,1–0,4 s | `~/.claudio/tts-venv` (Python 3.12) + `~/.claudio/models/tts/*.onnx` |
 | Kokoro-82M (neuronal) | es: alex, santa, dora; en: michael, puck, heart, george | 1,3–2 s | mismo venv + `kokoro-v1.0.onnx` (325 MB) |
 
-Pendiente: que Javier elija voz. Opciones de pago si ninguna convence: ElevenLabs, OpenAI TTS, Google Chirp HD, Azure Neural.
+Elegidas el 2026-11-18 (provisionales): **Jorge (mejorada)** en español y **Kokoro Heart** en inglés. Ninguna local tenía acento de España y carácter a la vez; queda pendiente buscar una voz de personaje ("robot Disney") en castellano. Opciones de pago si ninguna convence: ElevenLabs, OpenAI TTS, Google Chirp HD, Azure Neural.
 
 ## Medidas (M2 Pro, 2026-11-18)
 
 - whisper con idioma fijo `es`: **~0,85 s** por frase de 2–3 s; con `auto`, ~1,7 s. Con `es` transcribe bien el inglés, así que se deja fijo.
-- De fin de frase a empezar a hablar: ~3,3 s (whisper 0,9 + Haiku 1,8 + `say` 0,6).
+- De fin de frase a empezar a hablar: ~3,3 s en español (whisper 0,9 + Haiku 1,8 + Jorge 0,6–0,8) y ~4 s en inglés (Kokoro ~1,3 s).
 
 ## Monkey noises
+
+- **`kokoro-server.py` se copia a `~/.claudio/`** al instalar: el LaunchAgent no depende de la rama que haya en la copia de trabajo. Tras cambiarlo, volver a ejecutar `scripts/install-tts.sh`.
+- **La primera llamada a Kokoro tras arrancar es más lenta** (carga del modelo, ~325 MB).
 
 - **Safari no reproduce audio que pasa por el service worker** (pide trozos con `Range`): `web/sw.js` deja pasar directos el audio, el vídeo y todo lo que esté bajo `/_`.
 

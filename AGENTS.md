@@ -19,7 +19,7 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 - **Cliente:** PWA (no app nativa: las apps firmadas con cuenta gratuita caducan a los 7 días y cada actualización exige Xcode). Añadida a pantalla de inicio + Acceso Guiado + bloqueo automático "Nunca".
 - **Backend:** en el Mac mini (arm64, macOS 26). Es la fuente de verdad de todos los datos.
 - **LLM:** Claude Haiku vía API con herramientas (`create_event`, `log_reading`, `complete_task`, `list_upcoming`, `add_roadmap_item`…). Sin modelo local en el iPhone.
-- **Voz:** el navegador corta frases por energía (VAD) → whisper.cpp en el Mac mini las transcribe → si empiezan por "Claudio", pitido / orden → Haiku → `say` de macOS → altavoz. Ver `docs/voz.md`.
+- **Voz:** el navegador corta frases por energía (VAD) → whisper.cpp en el Mac mini las transcribe → si empiezan por "Claudio", pitido / orden → Haiku → voz (Jorge con `say` en español, Kokoro Heart en inglés) → altavoz. Ver `docs/voz.md`.
 - **Calendario:** Claudio es dueño de sus eventos; se sincronizan hacia Google Calendar.
 
 ## Stack y estructura
@@ -35,7 +35,7 @@ server/migrations/     NNN_nombre.sql, se aplican solas al arrancar
 server/items.ts        eventos y tareas: consultas y validación
 server/chat.ts         chat con Claude Haiku (claude-haiku-5-5) y sus herramientas
 server/bus.ts          avisos en vivo (SSE) a todas las pantallas
-server/voice.ts        voz: whisper (127.0.0.1:3120) para entender, `say` para hablar
+server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, `say` Jorge (es) y Kokoro Heart (en, 127.0.0.1:3121)
 web/index.html         página única: ojos arriba, "Próximo" abajo
 web/eyes.js            ojos en pixel art: forma en "bloques" (escena de 40×22) pero posición continua a resolución real → movimiento suave. Estados: idle, listening, thinking, talking, happy, sleepy, sleeping
 web/app.js             reloj, modo noche, lista "Próximo", chat por teclado, avisos en vivo, salud + auto-recarga, wake lock
@@ -45,6 +45,8 @@ web/sw.js              service worker (red primero; la API nunca se cachea)
 scripts/install-agent.sh  instala el LaunchAgent de dev o prod
 scripts/deploy.sh      despliega producción desde origin/main
 scripts/install-whisper.sh  instala whisper.cpp + modelos y su LaunchAgent (común a dev y prod)
+scripts/install-tts.sh      instala Kokoro (voz inglesa) + modelos y su LaunchAgent (común a dev y prod)
+scripts/kokoro-server.py    servidor HTTP mínimo de Kokoro (127.0.0.1:3121)
 ```
 
 ## Comandos

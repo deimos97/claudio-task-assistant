@@ -34,7 +34,8 @@
 - [x] Claudio contesta en voz alta: `say` de macOS (voz Reed, es/en según el texto) → AAC; mientras habla no escucha. Si su respuesta es una pregunta, vuelve a escuchar sin wake word (2026-11-18)
 - [x] Botón de micro en la cabecera (activa la voz en ese dispositivo y lo recuerda); con la voz activada, tocar la cara = "te escucho" (2026-11-18)
 - [x] Voz probada en el iPhone real: funciona (2026-11-18). Javier sigue probando por si hay fallos
-- [ ] Cambiar la voz: a Javier no le gusta Reed. Inglés: **Kokoro Heart** (elegida 2026-11-18). Español: ninguna local convence (acento latino o inglés); busca acento de España y carácter de "robot Disney" (entrañable, expresivo; no efectos robóticos). Opciones: clonar voz en local (Chatterbox/F5) con una grabación de referencia, o voz diseñada en la nube (ElevenLabs). Pendiente de decidir
+- [x] Voz nueva (provisional): **Jorge (mejorada)** de macOS en español y **Kokoro Heart** en inglés, con Samantha de respaldo (2026-11-18)
+- [ ] Voz definitiva en castellano con carácter de "robot Disney" (entrañable, expresivo; no efectos robóticos): clonar en local (Chatterbox/F5) con una grabación de referencia, o voz diseñada en la nube (ElevenLabs)
 - [x] Claudio decía "te dije que había mirado la lista y no lo hice": el historial sin herramientas le confundía. Ahora recibe la agenda en cada turno y el historial es de las últimas 3 h (2026-11-18)
 - [x] Las muestras de voz no sonaban en el iPhone: el service worker ya no intercepta audio (2026-11-18)
 - [x] Registro del gasto de la API (`api_usage`, `GET /api/usage`): ~0,00034 $ por mensaje de media (2026-11-18)
@@ -89,6 +90,7 @@
 | 2026-11-18 | Datos fuera del repo, en `~/.claudio/<entorno>/` (BD y copias); clave de Anthropic en `~/.claudio/anthropic-key` (600), común a dev y prod | `deploy.sh` hace `git reset --hard` en prod; dev y prod no comparten datos |
 | 2026-11-18 | Chat: una sola conversación compartida por todas las pantallas; solo se guarda el texto de cada turno (no las llamadas a herramientas); contexto de 20 mensajes | Simple y barato; la agenda real está en la BD, no en el historial |
 | 2026-11-18 | POST de la API solo con `Content-Type: application/json` | Protección CSRF barata: otra web no puede enviarlo sin preflight CORS |
+| 2026-11-18 | Voces provisionales: Jorge (macOS, mejorada) en español y Kokoro Heart en inglés | A Javier le gustan; ninguna local tenía acento de España con carácter a la vez. La original de Loquendo no se puede usar (discontinuada, con licencia) |
 | 2026-11-18 | Voz adelantada de la fase 3 a la fase 1 | Preferencia de Javier |
 | 2026-11-18 | Wake word = VAD por energía en el navegador + whisper en el Mac mini, sin modelo de wake word ni cuentas externas | Todo local, sin entrenar un modelo ni depender de Picovoice; whisper ya hacía falta para las órdenes. Si hay falsos positivos o va lento, se cambia solo esa pieza |
 | 2026-11-18 | Fuera el emparejamiento de dispositivos; si hace falta una sesión más larga fuera de casa, se mejora la sesión del home-portal ("recordarme") | Una sola forma de entrar para todos los servicios de la casa |

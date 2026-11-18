@@ -11,10 +11,11 @@ const WHISPER_URL = process.env.CLAUDIO_WHISPER_URL ?? 'http://127.0.0.1:3120/in
 // Idioma fijo "es": la detección automática dobla el tiempo (0,85 s → 1,7 s) y el
 // modelo turbo transcribe igual de bien el inglés aunque se le diga "es".
 const STT_LANGUAGE = process.env.CLAUDIO_STT_LANGUAGE ?? 'es';
-const VOICES = {
-  es: process.env.CLAUDIO_VOICE_ES ?? 'Reed (Spanish (Spain))',
-  en: process.env.CLAUDIO_VOICE_EN ?? 'Reed (English (US))',
-};
+// Español: voz del Mac (`say`). Inglés: Kokoro (servicio local en :3121); si no responde, `say`.
+const SAY_VOICE_ES = process.env.CLAUDIO_VOICE_ES ?? 'Jorge (Enhanced)';
+const SAY_VOICE_EN = process.env.CLAUDIO_VOICE_EN_FALLBACK ?? 'Samantha';
+const KOKORO_URL = process.env.CLAUDIO_KOKORO_URL ?? 'http://127.0.0.1:3121/tts';
+const KOKORO_VOICE_EN = process.env.CLAUDIO_VOICE_EN ?? 'af_heart';
 
 export class VoiceError extends Error {}
 
@@ -45,8 +46,10 @@ export function guessLanguage(text: string): 'es' | 'en' {
   return en > es ? 'en' : 'es';
 }
 
-/** Texto → audio AAC (.m4a) con la voz de Claudio. */
-export async function speak(text: string): Promise<Buffer> {
+export type Speech = { audio: Buffer; type: 'audio/mp4' | 'audio/wav' };
+
+/** Texto → audio con la voz de Claudio (español: Jorge; inglés: Heart). */
+export async function speak(text: string): Promise<Speech> {
   const clean = text
     .replace(/[*_`#>]/g, '')                       // restos de markdown
     .replace(/\p{Extended_Pictographic}/gu, '')    // emojis
@@ -54,12 +57,35 @@ export async function speak(text: string): Promise<Buffer> {
     .trim()
     .slice(0, 1500);
   if (!clean) throw new VoiceError('Nada que decir');
+  const lang = guessLanguage(clean);
+  if (lang === 'en') {
+    try {
+      return { audio: await kokoro(clean, KOKORO_VOICE_EN, 'en-us'), type: 'audio/wav' };
+    } catch (e) {
+      console.error('voz: Kokoro no responde, uso say', e instanceof Error ? e.message : e);
+    }
+  }
+  return { audio: await say(clean, lang === 'en' ? SAY_VOICE_EN : SAY_VOICE_ES), type: 'audio/mp4' };
+}
+
+async function kokoro(text: string, voice: string, lang: string): Promise<Buffer> {
+  const res = await fetch(KOKORO_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, voice, lang }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error(`Kokoro respondió ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function say(text: string, voice: string): Promise<Buffer> {
   const dir = await mkdtemp(join(tmpdir(), 'claudio-tts-'));
   try {
     const input = join(dir, 'text.txt');
     const output = join(dir, 'voz.m4a');
-    await writeFile(input, clean);
-    await run('say', ['-v', VOICES[guessLanguage(clean)], '-f', input, '-o', output, '--file-format=m4af', '--data-format=aac'], { timeout: 30_000 });
+    await writeFile(input, text);
+    await run('say', ['-v', voice, '-f', input, '-o', output, '--file-format=m4af', '--data-format=aac'], { timeout: 30_000 });
     return await readFile(output);
   } finally {
     await rm(dir, { recursive: true, force: true });

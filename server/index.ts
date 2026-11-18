@@ -106,8 +106,8 @@ app.post('/api/tts', async (c) => {
   const body = await c.req.json().catch(() => null);
   const text = typeof body?.text === 'string' ? body.text : '';
   try {
-    const audio = await speak(text);
-    return c.body(new Uint8Array(audio), 200, { 'Content-Type': 'audio/mp4' });
+    const { audio, type } = await speak(text);
+    return c.body(new Uint8Array(audio), 200, { 'Content-Type': type });
   } catch (e) {
     if (e instanceof VoiceError) return c.json({ error: e.message }, 400);
     throw e;
