@@ -87,7 +87,7 @@ main {
   min-height: 0;
   overflow-y: auto;
   border-top: 1px solid var(--line);
-  padding: 14px 0 16px;
+  padding: 14px 0 64px; /* hueco para el botón de teclado */
 }
 .upcoming h2 {
   margin: 0 0 10px;
@@ -106,7 +106,7 @@ main {
   border-radius: 14px;
   padding: 12px 14px;
 }
-.upcoming .when { color: var(--accent-soft); font-size: 13px; min-width: 64px; font-variant-numeric: tabular-nums; }
+.upcoming .when { color: var(--accent-soft); font-size: 13px; min-width: 88px; font-variant-numeric: tabular-nums; }
 .upcoming .title { font-size: 16px; }
 .upcoming .empty { background: none; color: var(--muted); justify-content: center; padding: 20px 0; }
 
@@ -121,4 +121,122 @@ main {
   background: var(--surface); color: var(--text);
   border: 1px solid var(--line); border-radius: 999px;
   padding: 6px 12px; font: inherit; font-size: 13px;
+}
+
+/* ---------- Próximo: detalles ---------- */
+.upcoming .when.overdue { color: var(--bad); }
+.upcoming .title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.upcoming .check {
+  flex: 0 0 auto;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--accent-soft); background: none; padding: 0;
+  cursor: pointer;
+}
+.upcoming .check:active { background: var(--accent); }
+.upcoming li.done { opacity: .45; }
+.upcoming li.done .title { text-decoration: line-through; }
+
+/* ---------- Leyenda bajo los ojos: la última respuesta de Claudio ---------- */
+.caption {
+  max-width: 34em;
+  padding: 0 8px;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: opacity .4s ease;
+}
+.caption.fade { opacity: 0; }
+.caption.error { color: var(--bad); }
+
+/* ---------- Chat por teclado ---------- */
+/* Móvil: escondido tras un botón pequeño (respaldo de la voz). Escritorio: siempre visible. */
+.kbd {
+  position: fixed;
+  right: 14px; bottom: calc(env(safe-area-inset-bottom) + 14px);
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+  opacity: .55;
+}
+.kbd svg { width: 22px; height: 22px; }
+body.chat-open .kbd { opacity: 1; color: var(--accent); }
+
+.chat {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+body.chat-open .chat {
+  display: flex;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-height: 60%;
+  padding: 14px 16px calc(env(safe-area-inset-bottom) + 66px);
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, .35);
+}
+.log {
+  list-style: none; margin: 0; padding: 0;
+  overflow-y: auto; min-height: 0; flex: 1;
+  display: flex; flex-direction: column; gap: 8px;
+  -webkit-user-select: text; user-select: text;
+}
+.log li {
+  max-width: 85%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  font-size: 15px; line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.log li.user { align-self: flex-end; background: var(--accent); color: #1f1410; border-bottom-right-radius: 5px; }
+.log li.assistant { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 5px; }
+.log li.pending { color: var(--muted); }
+.log li.error { color: var(--bad); background: none; padding-left: 0; }
+.chat-row { display: flex; gap: 8px; }
+.chat-row input {
+  flex: 1; min-width: 0;
+  font: inherit; font-size: 16px; /* 16px: iOS no hace zoom al enfocar */
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 10px 16px; outline: none;
+  -webkit-user-select: text; user-select: text;
+}
+.chat-row input:focus { border-color: var(--accent); }
+.chat-row button {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
+  border: 0; background: var(--accent); color: #1f1410;
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+}
+.chat-row button svg { width: 22px; height: 22px; }
+.chat-row button:disabled { opacity: .5; cursor: default; }
+
+/* Escritorio: ojos + lista a la izquierda, chat a la derecha */
+@media (min-width: 900px) and (pointer: fine) {
+  body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: 28px;
+    padding: 0 28px 20px;
+  }
+  .top { grid-column: 1 / -1; }
+  main { grid-column: 1; grid-row: 2; }
+  .chat, body.chat-open .chat {
+    display: flex;
+    position: static;
+    grid-column: 2; grid-row: 2;
+    max-height: none;
+    padding: 16px 0 0;
+    background: none; border: 0; border-radius: 0; box-shadow: none;
+    border-left: 1px solid var(--line);
+    padding-left: 24px;
+  }
+  .kbd { display: none; }
+  .upcoming { padding-bottom: 16px; }
 }

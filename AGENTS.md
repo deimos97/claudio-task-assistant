@@ -2,7 +2,7 @@
 
 Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado: **fase 0 casi cerrada** (2026-11-18): prod en :3110 y dev en :3111; HTTPS por dominio funcionando; falta montar el iPhone. Ver `ROADMAP.md`.
+Estado: **fase 1 en curso** (2026-11-18): fase 0 cerrada (iPhone en kiosco, HTTPS por dominio). En dev ya hay BD, agenda real en "Próximo", chat con Haiku por teclado y avisos en vivo entre pantallas. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -28,10 +28,16 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 - **Cliente:** HTML + CSS + JavaScript (módulos ES) sin framework ni build. Lo que hay en `web/` es lo que se sirve.
 
 ```
-server/index.ts        API (/api/health, /api/upcoming) y sirve web/
+server/index.ts        API (health, upcoming, items, chat, stream) y sirve web/
+server/config.ts       rutas (datos en ~/.claudio/<entorno>/), hora local de Madrid
+server/db.ts           SQLite (node:sqlite) + migraciones + copias automáticas
+server/migrations/     NNN_nombre.sql, se aplican solas al arrancar
+server/items.ts        eventos y tareas: consultas y validación
+server/chat.ts         chat con Claude Haiku (claude-haiku-5-5) y sus herramientas
+server/bus.ts          avisos en vivo (SSE) a todas las pantallas
 web/index.html         página única: ojos arriba, "Próximo" abajo
 web/eyes.js            ojos en pixel art: forma en "bloques" (escena de 40×22) pero posición continua a resolución real → movimiento suave. Estados: idle, listening, thinking, talking, happy, sleepy, sleeping
-web/app.js             reloj, modo noche, lista, salud + auto-recarga, wake lock
+web/app.js             reloj, modo noche, lista "Próximo", chat por teclado, avisos en vivo, salud + auto-recarga, wake lock
 web/sw.js              service worker (red primero; la API nunca se cachea)
 scripts/install-agent.sh  instala el LaunchAgent de dev o prod
 scripts/deploy.sh      despliega producción desde origin/main
@@ -79,3 +85,4 @@ npm run check    # comprobación de tipos
 | Empezar o cerrar cualquier tarea | `ROADMAP.md` |
 | Montar o depurar el iPhone del escritorio (kiosco, PWA, HTTPS) | `docs/iphone-kiosco.md` |
 | Tocar dominios, certificados, DNS o el nginx de la Raspberry | `docs/servidor-pi.md` |
+| Tocar la BD, migraciones, copias, el chat con Haiku o la clave de Anthropic | `docs/backend.md` |

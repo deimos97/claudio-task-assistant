@@ -17,21 +17,24 @@
 - [x] HTTPS por dominio: `https://claudio.hotwheelsandbids.com` (prod) y `https://claudio-dev.hotwheelsandbids.com` (dev); certificado Let's Encrypt válido hasta 2027-02-16, HTTP→HTTPS, red local sin login (2026-11-18)
 - [x] Pi-hole: registro local `claudio-dev.hotwheelsandbids.com` → `192.168.0.5` (2026-11-18)
 - [x] Comprobado desde fuera de casa (datos móviles): pide el login del portal y después abre Claudio, prod y dev (2026-11-18)
-- [ ] `sudo certbot renew --dry-run` en la Raspberry para confirmar la renovación automática
+- [x] `sudo certbot renew --dry-run` en la Raspberry: las tres renovaciones simuladas OK (2026-11-18)
 - [x] PWA con los ojos animados: idle/parpadeo, mirar alrededor, escuchando, pensando, hablando, contento, adormilado, dormido (noche 23:00–07:30) (2026-11-17)
-- [ ] Probar en el iPhone 11 real (rendimiento de la animación, wake lock, instalación en pantalla de inicio) — Javier, con `docs/iphone-kiosco.md`
-- [ ] iPhone en modo kiosco: pantalla de inicio, Acceso Guiado, bloqueo "Nunca", carga optimizada / enchufe inteligente — guía en `docs/iphone-kiosco.md`
+- [x] Probar en el iPhone 11 real (rendimiento de la animación, wake lock, instalación en pantalla de inicio) (2026-11-18)
+- [x] iPhone en modo kiosco: pantalla de inicio, Acceso Guiado, bloqueo "Nunca" (2026-11-18)
 
 ## Fase 1 — Hablar con Claudio (texto) + eventos
 
-- [ ] Chat de texto con Haiku y herramientas
-- [ ] Entrada por teclado: discreta en móvil (icono pequeño, como respaldo de la voz), visible en escritorio
-- [ ] Base de datos (SQLite) + copias de seguridad automáticas desde el primer día
+- [x] Base de datos (SQLite, `node:sqlite`) + migraciones versionadas + copia al arrancar y cada 24 h, 14 guardadas (2026-11-18)
+- [x] Chat de texto con Haiku (`claude-haiku-5-5`, esfuerzo bajo) y herramientas: listar, crear, cambiar, completar y borrar eventos/tareas (2026-11-18; probado con una API simulada)
+- [ ] Probar el chat con la API real (falta la clave en `~/.claudio/anthropic-key`)
+- [x] Entrada por teclado: botón pequeño en móvil que abre un panel; en escritorio, columna de chat siempre visible (2026-11-18)
+- [ ] Desplegar fase 1 a prod (PR `dev → main`)
 - [ ] Notas y listas (compra, ideas…) que Claudio mantiene
 - [ ] Tiempo (clima) junto al reloj (Open-Meteo, sin clave)
-- [ ] Varias pantallas: diseño adaptable (escritorio: ojos + lista + chat lado a lado) y sincronización en vivo entre dispositivos (SSE): lo que añades en el Mac aparece al momento en el iPhone
+- [x] Sincronización en vivo entre pantallas (SSE, `/api/stream`): agenda y chat aparecen al momento en todas (2026-11-18)
+- [x] Diseño de escritorio básico: ojos + lista a la izquierda, chat a la derecha (≥ 900 px con ratón) (2026-11-18)
 - [ ] Emparejamiento de dispositivos con sesión larga propia de Claudio (fuera de casa ahora depende de la sesión de 12 h del home-portal)
-- [ ] Eventos propios de Claudio y lista "Próximo" bajo los ojos
+- [x] Eventos y tareas propios de Claudio en "Próximo": vencidas en rojo, tocar el círculo marca una tarea como hecha (2026-11-18)
 - [ ] Sincronización con Google Calendar (calendario dedicado "Claudio")
 
 ## Fase 2 — Motor de mantenimiento
@@ -76,4 +79,7 @@
 | 2026-11-17 | Ojos en pixel art con colores planos (coral sobre fondo oscuro, brillo crema) en vez de ojos realistas | A Javier los ojos realistas le daban mal rollo; el pixel art es más mono y más "asistente" |
 | 2026-11-17 | Ojos: forma pixelada pero movimiento suave (sprite a resolución real con muelle amortiguado) y más recorrido de mirada | El movimiento a saltos de bloque no le gustaba a Javier |
 | 2026-11-18 | Añadidos: teclado, notas/listas, tiempo, copias de seguridad, varias pantallas con sincronización en vivo, resumen diario y papel por dispositivo | Ideas aprobadas por Javier |
+| 2026-11-18 | Datos fuera del repo, en `~/.claudio/<entorno>/` (BD y copias); clave de Anthropic en `~/.claudio/anthropic-key` (600), común a dev y prod | `deploy.sh` hace `git reset --hard` en prod; dev y prod no comparten datos |
+| 2026-11-18 | Chat: una sola conversación compartida por todas las pantallas; solo se guarda el texto de cada turno (no las llamadas a herramientas); contexto de 20 mensajes | Simple y barato; la agenda real está en la BD, no en el historial |
+| 2026-11-18 | POST de la API solo con `Content-Type: application/json` | Protección CSRF barata: otra web no puede enviarlo sin preflight CORS |
 | 2026-11-18 | Dominio propio en vez de Tailscale: `claudio.` / `claudio-dev.hotwheelsandbids.com`, nginx de la Raspberry como proxy al Mac mini; red local sin login, fuera con login del home-portal | Reutiliza la infraestructura que ya existe (nginx, certbot, Pi-hole, login) y no exige app en cada dispositivo |
