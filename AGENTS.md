@@ -2,7 +2,7 @@
 
 Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado: **fase 1 casi cerrada** (2026-11-18), en producción: agenda real en "Próximo", chat con Haiku por teclado y por voz (wake word "Claudio" + pitido, whisper en el Mac mini, voz Jorge en español y Kokoro Heart en inglés), avisos en vivo entre pantallas y registro del gasto. Producción se despliega sola al mergear a `main`. Falta: notas/listas, tiempo, Google Calendar y la voz definitiva en castellano. Ver `ROADMAP.md`.
+Estado (2026-11-18): **fase 1 y base de la fase 2 hechas en dev**. En producción: agenda, chat con Haiku por teclado y voz (wake word "Claudio", whisper, voz Jorge/Kokoro Heart), avisos en vivo y gasto. Solo en dev, pendiente de PR: listas (compra…), categorías, rutinas de mantenimiento (por tiempo y por uso), tiempo en el pie y panel dinámico que Claudio controla. Producción se despliega sola al mergear a `main`. Google Calendar y la voz definitiva en castellano, en la fase 5. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -32,13 +32,17 @@ server/index.ts        API (health, upcoming, items, chat, stream) y sirve web/
 server/config.ts       rutas (datos en ~/.claudio/<entorno>/), hora local de Madrid
 server/db.ts           SQLite (node:sqlite) + migraciones + copias automáticas
 server/migrations/     NNN_nombre.sql, se aplican solas al arrancar
-server/items.ts        eventos y tareas: consultas y validación
+server/items.ts        eventos y tareas: consultas y validación (y `checkCategory`)
+server/lists.ts        listas (compra, ideas…) y sus entradas
+server/routines.ts     mantenimiento: activos, contadores, lecturas, rutinas y su próxima fecha
+server/view.ts         lo que enseña el panel: "Próximo" o la vista que pide Claudio (`show`)
+server/weather.ts      tiempo de Open-Meteo (caché 15 min)
 server/chat.ts         chat con Claude Haiku (claude-haiku-5-5) y sus herramientas
 server/bus.ts          avisos en vivo (SSE) a todas las pantallas
 server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, `say` Jorge (es) y Kokoro Heart (en, 127.0.0.1:3121)
-web/index.html         página única: ojos arriba, "Próximo" abajo
+web/index.html         página única: ojos arriba, panel abajo, pie (tiempo, fecha, conexión, micro, teclado)
 web/eyes.js            ojos en pixel art: forma en "bloques" (escena de 40×22) pero posición continua a resolución real → movimiento suave. Estados: idle, listening, thinking, talking, happy, sleepy, sleeping
-web/app.js             reloj, modo noche, lista "Próximo", chat por teclado, avisos en vivo, salud + auto-recarga, wake lock
+web/app.js             fecha y tiempo, modo noche, panel dinámico, chat por teclado, voz, avisos en vivo, salud + auto-recarga, wake lock
 web/voice.js           oídos: micro → 16 kHz → VAD → frases WAV; pitido; reproducir la voz; detectar "Claudio"
 web/capture-worklet.js hilo de audio que pasa las muestras del micro
 web/sw.js              service worker (red primero; la API nunca se cachea)
@@ -82,10 +86,12 @@ Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/
 
 ## Conceptos del dominio
 
+- **Categoría:** texto libre en minúsculas en eventos, tareas, listas, entradas y rutinas ("casa", "gatos"). La elige Claudio si no se dice.
+- **Lista:** compra, ideas, notas… con entradas que se tachan. En la compra, la categoría es la sección del súper.
 - **Activo:** coche, bici, casa…
 - **Contador:** km, horas de motor, lavados…
 - **Lectura:** valor fechado de un contador. Con varias lecturas se estima el ritmo de uso (km/día).
-- **Tarea de mantenimiento:** disparada por tiempo, por uso, o *lo que llegue antes* (p. ej. neumáticos: 5 años o 40.000 km). Con el ritmo de uso se proyecta una fecha y aparece en la misma lista que los eventos.
+- **Rutina** (tarea de mantenimiento, tabla `routines`): disparada por tiempo, por uso, o *lo que llegue antes* (p. ej. neumáticos: 5 años o 40.000 km). Con el ritmo de uso se proyecta una fecha y aparece en la misma lista que los eventos.
 - **Check-in:** Claudio pide una lectura cuando la estimación está vieja o se acerca un vencimiento proyectado.
 
 ## Reglas
@@ -103,5 +109,6 @@ Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/
 | Montar o depurar el iPhone del escritorio (kiosco, PWA, HTTPS) | `docs/iphone-kiosco.md` |
 | Desplegar o cambiar cómo se despliega | `docs/despliegue.md` |
 | Tocar dominios, certificados, DNS o el nginx de la Raspberry | `docs/servidor-pi.md` |
-| Tocar la BD, migraciones, copias, el chat con Haiku o la clave de Anthropic | `docs/backend.md` |
+| Tocar la BD, migraciones, copias, el chat con Haiku, sus herramientas, listas, rutinas o la clave de Anthropic | `docs/backend.md` |
+| Tocar la interfaz: panel dinámico, pie, ojos | `docs/interfaz.md` |
 | Tocar la voz: micro, wake word, whisper, `say` | `docs/voz.md` |

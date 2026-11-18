@@ -5,15 +5,34 @@ const $ = (id) => document.getElementById(id);
 const eyes = new Eyes($('eyes'));
 window.claudio = { eyes }; // para depurar desde la consola
 
-// ---------- Reloj ----------
+// ---------- Pie: fecha y tiempo ----------
+// La hora ya la da el iPhone (también en modo kiosco): aquí solo "Miércoles - 18-11-26".
 const LOCALE = 'es-ES';
-function tickClock() {
+function tickDate() {
   const now = new Date();
-  $('clock').textContent = now.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
-  $('date').textContent = now.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
+  const wd = now.toLocaleDateString(LOCALE, { weekday: 'long' });
+  const p2 = (n) => String(n).padStart(2, '0');
+  $('date').textContent = `${wd[0].toUpperCase()}${wd.slice(1)} - ${p2(now.getDate())}-${p2(now.getMonth() + 1)}-${p2(now.getFullYear() % 100)}`;
 }
-tickClock();
-setInterval(tickClock, 10_000);
+tickDate();
+setInterval(tickDate, 60_000);
+
+async function loadWeather() {
+  try {
+    const r = await fetch('api/weather', { cache: 'no-store' });
+    if (!r.ok) return;
+    const w = await r.json();
+    const el = $('weather');
+    el.textContent = `${w.icon} ${w.temp}°`;
+    const range = document.createElement('span');
+    range.className = 'range';
+    // Hueco justo en el pie: la lluvia solo si es probable; máximas y mínimas, en el título
+    if (w.today.rain >= 40) { range.textContent = `💧${w.today.rain}%`; el.appendChild(range); }
+    el.title = `${w.place}: ${w.text}. Hoy ${w.today.text}, ${w.today.min}–${w.today.max}°; mañana ${w.tomorrow.text}, ${w.tomorrow.min}–${w.tomorrow.max}°`;
+  } catch { /* se queda lo último */ }
+}
+loadWeather();
+setInterval(loadWeather, 15 * 60_000);
 
 // ---------- Modo noche: Claudio duerme y la pantalla se atenúa ----------
 const NIGHT_FROM = 23 * 60;      // 23:00
@@ -46,6 +65,7 @@ face.addEventListener('pointerup', () => {
   if (!pressTimer) return; // fue pulsación larga
   clearTimeout(pressTimer);
   pressTimer = null;
+  if (viewSpec) { hideView(); return; } // tocar los ojos = "vale, ya lo he visto"
   if (eyes.state === 'sleeping') {
     manualUntil = Date.now() + 2 * 60_000;
     document.body.classList.remove('night');
@@ -96,59 +116,145 @@ function whenLabel(at) {
   return { text, overdue: at < (time ? `${isoDate(new Date())}T${new Date().toTimeString().slice(0, 5)}` : isoDate(new Date())) };
 }
 
-function renderUpcoming(items) {
-  const ul = $('upcoming-list');
-  ul.innerHTML = '';
-  if (!items.length) {
+// ---------- Panel: "Próximo" o lo que Claudio enseña ----------
+// En reposo: "Próximo". Cuando Claudio usa `show`, el panel crece sobre los ojos con esa
+// vista y vuelve solo tras SHOW_MS sin tocarlo, al cerrarlo o con una respuesta que no enseña nada.
+const SHOW_MS = 60_000;
+let viewSpec = null;   // null = "Próximo"
+let showTimer = null;
+let turnShown = false; // ¿la respuesta en curso ha enseñado algo?
+
+function rowEl(r) {
+  const li = document.createElement('li');
+  if (r.done) li.classList.add('done');
+  if (r.kind !== 'entry') {
+    const w = whenLabel(r.at);
+    const when = document.createElement('span');
+    when.className = 'when' + (w.overdue && r.kind !== 'event' ? ' overdue' : '');
+    when.textContent = r.kind === 'routine' && !r.at ? 'Sin estimar' : w.text;
+    li.appendChild(when);
+  }
+  const main = document.createElement('span');
+  main.className = 'main';
+  const title = document.createElement('span');
+  title.className = 'title';
+  title.textContent = r.title ?? '';
+  main.appendChild(title);
+  // La categoría solo en "Próximo": en las vistas de Claudio ya agrupa por ella
+  const meta = [viewSpec ? null : r.category, r.detail].filter(Boolean).join(' · ');
+  if (meta) {
+    const m = document.createElement('span');
+    m.className = 'meta';
+    m.textContent = meta;
+    main.appendChild(m);
+  }
+  li.appendChild(main);
+  if (r.kind !== 'event') {
+    const check = document.createElement('button');
+    check.className = 'check' + (r.kind === 'routine' ? ' loop' : '');
+    check.type = 'button';
+    check.setAttribute('aria-label', r.kind === 'routine' ? `Hecho hoy: "${r.title}"` : `Marcar "${r.title}"`);
+    check.addEventListener('click', () => markDone(r, li));
+    li.appendChild(check);
+  }
+  return li;
+}
+
+function renderView(v) {
+  $('panel-title').textContent = v.title;
+  const box = $('panel-body');
+  box.innerHTML = '';
+  const groups = v.groups.filter((g) => g.rows.length);
+  if (!groups.length) {
+    const ul = document.createElement('ul');
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = 'Nada por ahora. Pídeme que te apunte algo.';
+    li.textContent = viewSpec ? 'Aquí no hay nada.' : 'Nada por ahora. Pídeme que te apunte algo.';
     ul.appendChild(li);
+    box.appendChild(ul);
     return;
   }
-  for (const it of items) {
-    const li = document.createElement('li');
-    const w = whenLabel(it.at);
-    const when = document.createElement('span');
-    when.className = 'when' + (w.overdue && it.kind === 'task' ? ' overdue' : '');
-    when.textContent = w.text;
-    const title = document.createElement('span');
-    title.className = 'title';
-    title.textContent = it.title ?? '';
-    li.append(when, title);
-    if (it.kind === 'task') {
-      const check = document.createElement('button');
-      check.className = 'check';
-      check.type = 'button';
-      check.setAttribute('aria-label', `Marcar "${it.title}" como hecha`);
-      check.addEventListener('click', () => completeTask(it, li));
-      li.appendChild(check);
+  for (const g of groups) {
+    if (g.title) {
+      const h = document.createElement('h3');
+      h.textContent = g.title;
+      box.appendChild(h);
     }
-    ul.appendChild(li);
+    const ul = document.createElement('ul');
+    for (const r of g.rows) ul.appendChild(rowEl(r));
+    box.appendChild(ul);
   }
 }
-async function loadUpcoming() {
+
+async function loadView() {
+  const spec = viewSpec;
   try {
-    const r = await fetch('api/upcoming', { cache: 'no-store' });
-    renderUpcoming((await r.json()).items ?? []);
+    const q = spec ? `?spec=${encodeURIComponent(JSON.stringify(spec))}` : '';
+    const r = await fetch(`api/view${q}`, { cache: 'no-store' });
+    const v = await r.json();
+    if (spec !== viewSpec) return; // cambió mientras tanto
+    if (!r.ok) { if (spec) hideView(); return; }
+    renderView(v);
   } catch { /* se queda lo último pintado */ }
 }
-async function completeTask(item, li) {
-  li.classList.add('done');
-  try {
-    const r = await fetch(`api/items/${item.id}/done`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-    });
-    if (!r.ok) throw new Error();
-    react('happy', 1500);
-  } catch {
-    li.classList.remove('done');
+
+function showView(spec, note) {
+  if (!spec || !Object.keys(spec).length) { hideView(); return; }
+  const same = JSON.stringify(spec) === JSON.stringify(viewSpec);
+  viewSpec = spec;
+  turnShown = true;
+  if (note !== undefined) $('panel-note').textContent = note;
+  if (!same) {
+    $('panel-note').textContent = note ?? '';
+    $('panel-body').scrollTop = 0;
+    document.body.classList.add('showing');
+    $('panel-close').hidden = false;
+    // Claudio mira hacia lo que enseña
+    const r = $('panel').getBoundingClientRect();
+    eyes.lookAt(r.left + r.width / 2, r.bottom, 2500);
   }
-  loadUpcoming();
+  loadView();
+  armShowTimer();
 }
-renderUpcoming([]);
-loadUpcoming();
-setInterval(loadUpcoming, 5 * 60_000); // red de seguridad; lo normal es el aviso en vivo
+function hideView() {
+  clearTimeout(showTimer);
+  if (!viewSpec) return;
+  viewSpec = null;
+  document.body.classList.remove('showing');
+  $('panel-close').hidden = true;
+  $('panel-note').textContent = '';
+  loadView();
+}
+function armShowTimer() {
+  clearTimeout(showTimer);
+  if (viewSpec) showTimer = setTimeout(hideView, SHOW_MS);
+}
+// Mientras se mira (scroll, toques), el panel no se cierra
+for (const ev of ['pointerdown', 'scroll', 'wheel', 'touchmove']) {
+  $('panel-body').addEventListener(ev, armShowTimer, { passive: true });
+}
+$('panel-close').addEventListener('click', hideView);
+window.claudio.show = showView; // depurar: claudio.show({ list: 'Compra' })
+
+async function markDone(r, li) {
+  const undo = r.kind === 'entry' && r.done;
+  li.classList.toggle('done', !undo);
+  const url = { task: 'items', routine: 'routines', entry: 'entries' }[r.kind];
+  try {
+    const res = await fetch(`api/${url}/${r.id}/done`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: !undo }),
+    });
+    if (!res.ok) throw new Error();
+    if (!undo) react('happy', 1500);
+  } catch {
+    li.classList.toggle('done', undo);
+  }
+  armShowTimer();
+  loadView();
+}
+renderView({ title: 'Próximo', groups: [] });
+loadView();
+setInterval(loadView, 5 * 60_000); // red de seguridad; lo normal es el aviso en vivo
 
 // ---------- Reacciones de los ojos ----------
 let reactTimer = null;
@@ -195,7 +301,12 @@ function addMessage(m) {
   if (pending && m.role === 'user') log.insertBefore(li, pending); else log.appendChild(li);
   while (log.children.length > 60) log.firstChild.remove();
   log.scrollTop = log.scrollHeight;
-  if (m.role === 'assistant' && !waiting && m.text !== lastReply) say(m.text); // respuesta pedida desde otra pantalla
+  if (m.role === 'user') turnShown = false;
+  if (m.role === 'assistant' && !waiting && m.text !== lastReply) {
+    // Respuesta pedida desde otra pantalla
+    say(m.text);
+    if (turnShown) $('panel-note').textContent = m.text; else hideView();
+  }
 }
 async function loadChat() {
   try {
@@ -239,8 +350,9 @@ async function sendChat(text) {
     waiting = false;
     lastReply = data.reply;
     say(data.reply);
+    if (data.view) showView(data.view, data.reply); else hideView();
     loadChat(); // por si el aviso en vivo no llegó
-    if (data.changed) loadUpcoming();
+    if (data.changed) loadView();
     return data.reply;
   } catch (e) {
     const msg = e.message || 'No he podido contestar.';
@@ -263,6 +375,9 @@ $('chat-form').addEventListener('submit', (ev) => {
   input.value = '';
   sendChat(text);
 });
+
+// iOS deja la página desplazada al cerrar el teclado (hueco bajo el pie): se recoloca.
+$('chat-input').addEventListener('blur', () => setTimeout(() => window.scrollTo(0, 0), 50));
 
 // Botón de teclado (móvil): abre y cierra el chat
 $('kbd').addEventListener('click', () => {
@@ -411,12 +526,15 @@ try {
 // ---------- Avisos en vivo (SSE) ----------
 function connectStream() {
   const es = new EventSource('api/stream');
-  es.addEventListener('items', () => loadUpcoming());
+  es.addEventListener('items', () => loadView());
+  es.addEventListener('show', (ev) => {
+    try { showView(JSON.parse(ev.data)); } catch { /* aviso raro */ }
+  });
   es.addEventListener('chat', (ev) => {
     try { addMessage(JSON.parse(ev.data)); } catch { /* mensaje raro */ }
   });
   // EventSource reconecta solo; al volver, refrescamos por si nos perdimos algo.
-  es.addEventListener('hello', () => { loadUpcoming(); });
+  es.addEventListener('hello', () => { loadView(); });
 }
 connectStream();
 
@@ -452,7 +570,7 @@ async function keepAwake() {
 }
 keepAwake();
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { keepAwake(); checkHealth(); loadUpcoming(); }
+  if (document.visibilityState === 'visible') { keepAwake(); checkHealth(); loadView(); loadWeather(); }
 });
 
 // ---------- Service worker (para instalar la PWA) ----------

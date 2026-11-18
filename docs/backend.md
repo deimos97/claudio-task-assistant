@@ -44,10 +44,23 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 ## Chat (`server/chat.ts`)
 
 - Modelo `claude-haiku-5-5` con `effort: "low"`; bucle manual de herramientas (máx. 8 llamadas por turno).
-- Herramientas: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item`. Un error de validación vuelve al modelo como `tool_result` con `is_error`, para que lo corrija o lo diga.
+- Herramientas:
+  - Agenda: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item` (con `category`).
+  - Listas: `list_add` (crea la lista si no existe; no duplica lo pendiente), `list_check`, `list_edit`, `list_remove`, `list_clear`.
+  - Mantenimiento: `create_routine`, `update_routine`, `routine_done`, `routine_history`, `delete_routine`, `log_reading`.
+  - Pantalla: `show` (ver `docs/interfaz.md`).
+  - Un error de validación vuelve al modelo como `tool_result` con `is_error`, para que lo corrija o lo diga.
 - Una sola conversación para todas las pantallas; los turnos se atienden de uno en uno. Se guardan solo el texto del usuario y la respuesta final (`chat_messages`); el contexto son los últimos 20 mensajes **de las últimas 3 horas**.
-- En cada turno se le da **la agenda pendiente con ids** (bloque dinámico del `system`, detrás de la parte en caché): contesta con ella sin llamar a `list_items`, y sabe los ids para cambiar cosas.
+- En cada turno se le da **una foto del estado con ids** (bloque dinámico del `system`, detrás de la parte en caché): agenda pendiente, rutinas con su próxima fecha, listas con sus entradas pendientes, contadores con su ritmo, categorías en uso y el tiempo. Contesta con ella sin llamar a `list_items`, y sabe los ids para cambiar cosas.
 - La fecha y hora actual van en un segundo bloque del `system`, después del prompt fijo (que lleva `cache_control`).
+
+## Rutinas (motor de mantenimiento, `server/routines.ts`)
+
+- Una rutina vence **por tiempo** (`every_days` desde `last_done_at`), **por uso** (`every_amount` del contador desde `last_done_value`) o **lo primero**. La próxima fecha se calcula al leer, no se guarda.
+- Ritmo de uso = (última lectura − primera del último año) / días entre ellas. Con él se proyecta el día en que el contador llega al objetivo. Con menos de dos lecturas no hay fecha por uso.
+- Nunca hecha (`last_done_at` vacío) y por tiempo → toca hoy.
+- `routine_done` apunta en `routine_log` y actualiza `last_done_*` (no retrocede si se apunta una vez anterior). Si se dice el valor del contador, también cuenta como lectura; si no, se usa el estimado.
+- Activos y contadores se crean solos la primera vez que se nombran (`asset` + `unit`).
 
 ## Gasto
 
@@ -55,16 +68,22 @@ Cada llamada al modelo se apunta en `api_usage` (tokens y coste en USD con los p
 
 Medido el 2026-11-18 con 8 órdenes de prueba (crear, mover, completar, borrar, preguntar): **0,0027 $ en total**, de 0,00007 $ a 0,0009 $ por mensaje (media 0,00034 $). El prompt fijo y las herramientas (~1.570 tokens) salen de la caché. 30 mensajes al día ≈ 0,30 $/mes. Whisper y la voz son locales: coste cero.
 
+Con listas, rutinas y `show` (2026-11-18, 6 órdenes de prueba): ~0,001 $ por mensaje, porque hay más herramientas y la foto del estado es más larga. 30 mensajes al día ≈ 1 $/mes.
+
 ## API
 
 | Ruta | Qué hace |
 |---|---|
 | `GET /api/health` | `{ok, env, version, chat}`; `chat` = hay clave |
 | `GET /api/upcoming` | tareas abiertas (vencidas incluidas) y eventos que no han pasado |
+| `GET /api/view?spec={…}` | lo que enseña el panel; sin `spec`, "Próximo" (eventos, tareas y rutinas de los próximos 14 días) |
 | `POST /api/items/:id/done` | marca hecha (`{"done": false}` la reabre) |
-| `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text}` → `{reply, changed}` |
+| `POST /api/routines/:id/done` | rutina hecha hoy |
+| `POST /api/entries/:id/done` | tacha una entrada de lista (`{"done": false}` la destacha) |
+| `GET /api/weather` | tiempo ahora, hoy y mañana (Open-Meteo, caché 15 min) |
+| `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text}` → `{reply, changed, view}` |
 | `GET /api/usage` | gasto de la API de Anthropic: hoy, este mes y total (llamadas, tokens, USD) |
-| `GET /api/stream` | SSE: `items` (cambió la agenda), `chat` (mensaje nuevo), `ping` cada 25 s |
+| `GET /api/stream` | SSE: `items` (cambió algo), `chat` (mensaje nuevo), `show` (Claudio enseña una vista), `ping` cada 25 s |
 
 Los POST exigen `Content-Type: application/json` (protección CSRF).
 

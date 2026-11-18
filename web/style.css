@@ -28,93 +28,173 @@ html, body {
   overscroll-behavior: none;
 }
 
+/* El body se clava a la ventana real (inset: 0) en vez de fiarse de height: 100 %:
+   en la PWA de iOS la altura calculada puede no coincidir con la pantalla (sobre todo
+   tras abrir y cerrar el teclado) y quedaba un hueco vacío bajo el pie. */
 body {
+  position: fixed;
+  inset: 0;
+  height: auto;
   display: flex;
   flex-direction: column;
-  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  padding: calc(env(safe-area-inset-top) + 6px) 16px 0;
   transition: filter 2s ease;
 }
 body.night { filter: brightness(0.45); }
-
-.top {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding-top: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.clock { font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
-.date { color: var(--muted); font-size: 15px; flex: 1; }
-.date::first-letter { text-transform: uppercase; }
-.status {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--muted); align-self: center;
-}
-.status.ok { background: var(--ok); }
-.status.bad { background: var(--bad); }
 
 main {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 
+/* ---------- Ojos: 36 % en reposo; cuando Claudio enseña algo, encogen y el panel sube ---------- */
 .face {
-  flex: 0 0 52%;
+  flex: 0 0 36%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   min-height: 0;
+  transition: flex-basis .55s cubic-bezier(.3, .7, .2, 1);
 }
-#eyes {
+.eyes-box {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  max-height: 100%;
-  aspect-ratio: 40 / 22;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+#eyes { display: block; }
 .caption {
-  margin: 0;
+  margin: 0 0 6px;
   min-height: 1.4em;
   color: var(--muted);
   font-size: 15px;
   text-align: center;
 }
+body.showing .face { flex-basis: 13%; }
+body.showing .caption { display: none; }
 
-.upcoming {
+/* ---------- Panel: "Próximo" o lo que Claudio enseña ---------- */
+.panel {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   border-top: 1px solid var(--line);
-  padding: 14px 0 64px; /* hueco para el botón de teclado */
+  padding-top: 12px;
+  transition: background-color .4s ease, box-shadow .4s ease, margin .55s cubic-bezier(.3, .7, .2, 1), padding .55s;
 }
-.upcoming h2 {
-  margin: 0 0 10px;
+body.showing .panel {
+  margin: -6px -6px 0;
+  padding: 14px 14px 0;
+  border-top-color: transparent;
+  border-radius: 22px 22px 0 0;
+  background: #262422;
+  box-shadow: 0 -12px 34px rgba(0, 0, 0, .45), 0 -1px 0 rgba(217, 119, 87, .35);
+  animation: panel-in .55s cubic-bezier(.3, .7, .2, 1);
+}
+@keyframes panel-in { from { transform: translateY(24px); opacity: .6; } }
+.panel-head { display: flex; align-items: center; gap: 10px; }
+.panel h2 {
+  flex: 1;
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--accent);
 }
-.upcoming ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.upcoming li {
+body.showing .panel h2 { font-size: 17px; letter-spacing: .4px; text-transform: none; color: var(--text); }
+.panel-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--line); background: none; color: var(--muted);
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+}
+.panel-close[hidden] { display: none; }
+.panel-close svg { width: 16px; height: 16px; }
+.panel-note { display: none; margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.35; }
+body.showing .panel-note:not(:empty) { display: block; }
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 0 16px;
+}
+.panel h3 {
+  margin: 14px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent-soft);
+}
+.panel h3:first-child { margin-top: 2px; }
+.panel ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.panel li {
   display: flex;
   gap: 12px;
   align-items: center;
   background: var(--surface);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 11px 14px;
 }
-.upcoming .when { color: var(--accent-soft); font-size: 13px; min-width: 88px; font-variant-numeric: tabular-nums; }
-.upcoming .title { font-size: 16px; }
-.upcoming .empty { background: none; color: var(--muted); justify-content: center; padding: 20px 0; }
+body.showing .panel li { background: #322f2c; }
+.panel .when { color: var(--accent-soft); font-size: 13px; min-width: 80px; font-variant-numeric: tabular-nums; }
+.panel .when.overdue { color: var(--bad); }
+.panel .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.panel .title { font-size: 16px; overflow-wrap: anywhere; }
+.panel .meta { font-size: 12.5px; color: var(--muted); }
+.panel .empty { background: none; color: var(--muted); justify-content: center; padding: 20px 0; }
+.panel .check {
+  flex: 0 0 auto;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--accent-soft); background: none; padding: 0;
+  cursor: pointer;
+}
+.panel .check.loop { border-style: dashed; }
+.panel .check:active { background: var(--accent); }
+.panel li.done { opacity: .45; }
+.panel li.done .title { text-decoration: line-through; }
+.panel li.done .check { background: var(--accent-soft); }
+
+/* ---------- Pie: tiempo, fecha, conexión, micro y teclado en una línea ---------- */
+.foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 0 calc(env(safe-area-inset-bottom) + 6px);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  z-index: 3;
+  background: var(--bg);
+}
+.weather { white-space: nowrap; color: var(--text); }
+.weather .range { color: var(--muted); margin-left: 4px; font-size: 13px; }
+.date { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status {
+  flex: 0 0 auto;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--muted);
+}
+.status.ok { background: var(--ok); }
+.status.bad { background: var(--bad); }
 
 .debug {
   position: fixed;
-  left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 8px);
+  left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 60px);
   display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;
   padding: 0 16px;
+  z-index: 4;
 }
 .debug[hidden] { display: none; }
 .debug button {
@@ -122,19 +202,6 @@ main {
   border: 1px solid var(--line); border-radius: 999px;
   padding: 6px 12px; font: inherit; font-size: 13px;
 }
-
-/* ---------- Próximo: detalles ---------- */
-.upcoming .when.overdue { color: var(--bad); }
-.upcoming .title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.upcoming .check {
-  flex: 0 0 auto;
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 2px solid var(--accent-soft); background: none; padding: 0;
-  cursor: pointer;
-}
-.upcoming .check:active { background: var(--accent); }
-.upcoming li.done { opacity: .45; }
-.upcoming li.done .title { text-decoration: line-through; }
 
 /* ---------- Leyenda bajo los ojos: la última respuesta de Claudio ---------- */
 .caption {
@@ -153,14 +220,13 @@ main {
 /* ---------- Chat por teclado ---------- */
 /* Móvil: escondido tras un botón pequeño (respaldo de la voz). Escritorio: siempre visible. */
 .kbd {
-  position: fixed;
-  right: 14px; bottom: calc(env(safe-area-inset-bottom) + 14px);
-  width: 40px; height: 40px; border-radius: 50%;
-  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  flex: 0 0 auto;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--line); background: none; color: var(--muted);
   display: grid; place-items: center; padding: 0; cursor: pointer;
-  opacity: .55;
+  opacity: .7;
 }
-.kbd svg { width: 22px; height: 22px; }
+.kbd svg { width: 20px; height: 20px; }
 body.chat-open .kbd { opacity: 1; color: var(--accent); }
 
 .chat {
@@ -172,9 +238,11 @@ body.chat-open .kbd { opacity: 1; color: var(--accent); }
 body.chat-open .chat {
   display: flex;
   position: fixed;
-  left: 0; right: 0; bottom: 0;
+  left: 0; right: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 48px);
   max-height: 60%;
-  padding: 14px 16px calc(env(safe-area-inset-bottom) + 66px);
+  padding: 14px 16px 12px;
+  z-index: 2;
   background: var(--bg);
   border-top: 1px solid var(--line);
   border-radius: 18px 18px 0 0;
@@ -221,30 +289,29 @@ body.chat-open .chat {
   body {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
     column-gap: 28px;
-    padding: 0 28px 20px;
+    padding: 16px 28px 0;
   }
-  .top { grid-column: 1 / -1; }
-  main { grid-column: 1; grid-row: 2; }
+  main { grid-column: 1; grid-row: 1; }
+  .foot { grid-column: 1; grid-row: 2; }
   .chat, body.chat-open .chat {
     display: flex;
     position: static;
-    grid-column: 2; grid-row: 2;
+    grid-column: 2; grid-row: 1 / 3;
     max-height: none;
-    padding: 16px 0 0;
+    padding: 0 0 16px;
     background: none; border: 0; border-radius: 0; box-shadow: none;
     border-left: 1px solid var(--line);
     padding-left: 24px;
   }
   .kbd { display: none; }
-  .upcoming { padding-bottom: 16px; }
 }
 
 /* ---------- Micro (voz) ---------- */
 .mic {
-  align-self: center;
-  width: 32px; height: 32px; border-radius: 50%;
+  flex: 0 0 auto;
+  width: 36px; height: 36px; border-radius: 50%;
   border: 1px solid var(--line); background: none; color: var(--muted);
   display: grid; place-items: center; padding: 0; cursor: pointer;
   opacity: .6;
