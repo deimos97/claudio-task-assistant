@@ -404,8 +404,16 @@ $('chat-form').addEventListener('submit', (ev) => {
   sendChat(text);
 });
 
-// iOS deja la página desplazada al cerrar el teclado (hueco bajo el pie): se recoloca.
-$('chat-input').addEventListener('blur', () => setTimeout(() => window.scrollTo(0, 0), 50));
+// iOS deja la página desplazada y la ventana encogida al cerrar el teclado (medido en el
+// iPhone: inner 483 y scrollY 365 sin teclado). Cada vez que la ventana visible cambia
+// de tamaño sin un campo enfocado, se vuelve arriba; varias veces porque la animación tarda.
+function unscroll() {
+  if (document.activeElement?.tagName === 'INPUT') return;
+  for (const ms of [0, 120, 400, 900]) setTimeout(() => { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; }, ms);
+}
+$('chat-input').addEventListener('blur', unscroll);
+window.visualViewport?.addEventListener('resize', unscroll);
+window.addEventListener('scroll', () => { if (scrollY && document.activeElement?.tagName !== 'INPUT') unscroll(); }, { passive: true });
 
 // Botón de teclado (móvil): abre y cierra el chat
 $('kbd').addEventListener('click', () => {
