@@ -18,7 +18,7 @@ claudio*.hotwheelsandbids.com → 192.168.0.5
 - **Acceso:** desde `192.168.0.0/24` sin login (el kiosco); desde fuera, sesión del **home-portal** (`hotwheelsandbids.com/login`) vía `auth_request`, igual que `pihole.`.
 - **El servidor de la Raspberry pertenece al proyecto `home-portal`** (sitio `public_html`). No tocar ese fichero desde aquí.
 
-## Instalación (una vez; requiere a Javier: Cloudflare, Pi-hole y `sudo` en la Raspberry)
+## Instalación (hecha el 2026-11-18; requiere a Javier: Cloudflare, Pi-hole y `sudo` en la Raspberry)
 
 1. **Cloudflare → DNS → Add record** (dos veces):
    - `CNAME` · nombre `claudio` · destino `hotwheelsandbids.com` · *DNS only*
@@ -50,3 +50,7 @@ claudio*.hotwheelsandbids.com → 192.168.0.5
 - **Sesión del portal = 12 h** (`lifetime` de la cookie en `auth-check.php`): desde fuera hay que volver a entrar cada 12 h. En casa no afecta porque la red local no pide login.
 - **iCloud Private Relay / "Limitar rastreo de IP"** en el iPhone pueden saltarse el Pi-hole y resolver la IP pública: desactivarlos para la Wi‑Fi de casa.
 - **Sin `sudo` sin contraseña en la Raspberry:** los cambios de nginx/certbot los ejecuta Javier.
+- **Un solo certificado para los dos dominios** (`/etc/letsencrypt/live/claudio.hotwheelsandbids.com/`, SAN con `claudio-dev.`).
+- **DDNS:** `~/cloudflare-ddns.sh` (cron cada 5 min) solo actualiza los registros A del apex y de `pihole.`. Los subdominios nuevos deben ser **CNAME al apex** para seguir la IP sin tocar el script.
+- **El router no hace NAT loopback:** desde casa, la IP pública no responde; por eso cada subdominio necesita su registro local en Pi-hole.
+- **`auth-check.php` depende del home-portal desplegado** (`/home/deimos97/portal-app/bootstrap.php`): si el portal se rompe, desde fuera Claudio da 500/401.

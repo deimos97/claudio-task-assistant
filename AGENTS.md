@@ -2,7 +2,7 @@
 
 Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado: **fase 0 casi cerrada** (2026-11-18): prod en :3110 y dev en :3111; falta HTTPS por dominio (pasos de Javier en `docs/servidor-pi.md`) y montar el iPhone. Ver `ROADMAP.md`.
+Estado: **fase 0 casi cerrada** (2026-11-18): prod en :3110 y dev en :3111; HTTPS por dominio funcionando; falta montar el iPhone. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
