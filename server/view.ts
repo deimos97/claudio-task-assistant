@@ -2,7 +2,7 @@
 // (herramienta `show`), una vista filtrada: una lista, una categoría (con sus subcategorías),
 // lo de una persona, lo de los próximos días, por prioridad…
 // La pantalla guarda la especificación y vuelve a pedir la vista cuando cambia algo.
-import { checkCategory, checkPriority, InputError, listItems, upcoming, type Item } from './items.ts';
+import { checkCategory, checkPriority, InputError, isPastEvent, listItems, pastCutoff, upcoming, type Item } from './items.ts';
 import { allLists, entries, findList } from './lists.ts';
 import { listRoutines, type RoutineStatus } from './routines.ts';
 import { isWho, PEOPLE, type Who } from './config.ts';
@@ -31,6 +31,9 @@ export type Row = {
   start_at?: string | null;
   detail?: string;
   done?: boolean;
+  past?: boolean;               // evento que ya pasó sin marcar
+  progress?: number | null;     // rutina: parte del ciclo transcurrida (1 = toca)
+  cycle?: string | null;        // rutina: "día 3 de 5"
 };
 export type View = { spec: ViewSpec; title: string; groups: { title: string; rows: Row[] }[] };
 
@@ -40,10 +43,11 @@ export const PRIORITY_LABEL = ['Algún día', 'Normal', 'Importante', 'Crítico'
 const itemRow = (it: Item): Row => ({
   key: `i${it.id}`, kind: it.kind, id: it.id, title: it.title, at: it.at, end_at: it.end_at,
   category: it.category, owner: it.owner, priority: it.priority, start_at: it.start_at,
+  ...(isPastEvent(it) ? { past: true } : {}),
 });
 const routineRow = (r: RoutineStatus): Row => ({
   key: `r${r.id}`, kind: 'routine', id: r.id, title: r.title, at: r.due_at, category: r.category,
-  owner: r.owner, priority: r.priority, detail: r.detail,
+  owner: r.owner, priority: r.priority, detail: r.detail, progress: r.progress, cycle: r.cycle,
 });
 const entryRow = (e: { id: number; text: string; category: string | null; done_at?: string | null }): Row => ({
   key: `e${e.id}`, kind: 'entry', id: e.id, title: e.text, at: null, category: e.category, done: !!e.done_at,
@@ -113,7 +117,7 @@ export function buildView(spec: ViewSpec = {}): View {
   // "Próximo" no enseña lo que aún no toca empezar; una vista pedida sí (salvo "hoy/N días")
   const items = (spec.category ? listItems({ category: spec.category }) : upcoming(80, filteredEarly && !spec.days))
     .filter((it) => (it.kind === 'event' ? kinds.includes('events') : kinds.includes('tasks')))
-    .filter((it) => it.kind === 'task' || !it.at || it.at >= today() || (it.end_at ?? '') >= today());
+    .filter((it) => it.kind === 'task' || !it.at || (it.end_at ?? it.at) >= pastCutoff());
   const filtered = !!(spec.category || spec.kinds || spec.days || spec.who || spec.min_priority !== undefined || spec.sort);
   const horizon = addDays(today(), spec.days ?? ROUTINE_HORIZON_DAYS);
   const routines = kinds.includes('routines')

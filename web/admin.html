@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f1e1d">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="admin.css">
+  <title>Claudio · Gestión</title>
+</head>
+<body>
+  <header class="top">
+    <a class="back" href="./" aria-label="Volver a Claudio">‹ Claudio</a>
+    <h1>Gestión</h1>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="agenda" aria-selected="true">Agenda</button>
+    <button role="tab" data-tab="lists" aria-selected="false">Listas</button>
+    <button role="tab" data-tab="routines" aria-selected="false">Rutinas</button>
+  </nav>
+
+  <main>
+    <!-- ---------- Agenda: citas y tareas ---------- -->
+    <section id="tab-agenda" class="tab">
+      <details class="card add" id="item-form-box">
+        <summary>＋ Nueva tarea o cita</summary>
+      <form id="item-form" class="form" autocomplete="off">
+        <h2 id="item-form-title" hidden></h2>
+        <div class="seg" role="radiogroup" aria-label="Tipo">
+          <label><input type="radio" name="kind" value="task" checked><span>Tarea</span></label>
+          <label><input type="radio" name="kind" value="event"><span>Cita</span></label>
+        </div>
+        <label class="field">Título<input name="title" required maxlength="200" placeholder="Pedir cita para la ITV"></label>
+        <div class="row">
+          <label class="field"><span class="lbl-task">Fecha límite</span><span class="lbl-event">Día</span><input type="date" name="date"></label>
+          <label class="field">Hora<input type="time" name="time"></label>
+          <label class="field only-event">Hasta<input type="time" name="end"></label>
+        </div>
+        <label class="field only-task">Avisar desde<input type="date" name="start_at"><small>Antes no sale en pantalla. Para lo que hay que pedir con margen.</small></label>
+        <div class="row">
+          <label class="field">Categoría<input name="category" list="cats" placeholder="casa/gatos"></label>
+          <label class="field">De<select name="owner"><option value="both">Los dos</option><option value="javier">Javier</option><option value="ana">Ana</option></select></label>
+          <label class="field">Prioridad<select name="priority"><option value="0">Algún día</option><option value="1" selected>Normal</option><option value="2">Importante</option><option value="3">Crítico</option></select></label>
+        </div>
+        <label class="field">Notas<textarea name="notes" rows="2" maxlength="2000"></textarea></label>
+        <div class="actions">
+          <button type="submit" class="primary">Guardar</button>
+          <button type="button" class="ghost cancel" hidden>Cancelar</button>
+        </div>
+        <p class="msg" role="status"></p>
+      </form>
+      </details>
+      <label class="toggle"><input type="checkbox" id="show-done"> Ver también lo hecho</label>
+      <div id="items"></div>
+    </section>
+
+    <!-- ---------- Listas ---------- -->
+    <section id="tab-lists" class="tab" hidden>
+      <details class="card add" id="list-form-box" open>
+        <summary>＋ Añadir a una lista</summary>
+      <form id="list-form" class="form" autocomplete="off">
+        <div class="row">
+          <label class="field">Lista<input name="list" list="list-names" required placeholder="Compra"></label>
+          <label class="field">Sección<input name="category" list="cats" placeholder="lácteos"></label>
+        </div>
+        <label class="field">Qué<input name="text" required maxlength="300" placeholder="Leche"></label>
+        <div class="actions"><button type="submit" class="primary">Añadir</button></div>
+        <p class="msg" role="status"></p>
+      </form>
+      </details>
+      <div id="lists"></div>
+    </section>
+
+    <!-- ---------- Rutinas ---------- -->
+    <section id="tab-routines" class="tab" hidden>
+      <details class="card add" id="routine-form-box">
+        <summary>＋ Nueva rutina</summary>
+      <form id="routine-form" class="form" autocomplete="off">
+        <h2 id="routine-form-title" hidden></h2>
+        <label class="field">Título<input name="title" required maxlength="200" placeholder="Cambiar la arena de los gatos"></label>
+        <div class="row">
+          <label class="field">Cada (días)<input type="number" name="every_days" min="1" step="1" placeholder="5"></label>
+          <label class="field">o cada<input type="number" name="every_amount" min="0" step="any" placeholder="15000"></label>
+          <label class="field">unidad<input name="unit" placeholder="km"></label>
+          <label class="field">de<input name="asset" placeholder="coche"></label>
+        </div>
+        <div class="row">
+          <label class="field">Última vez<input type="date" name="last_done_at"></label>
+          <label class="field">con (valor)<input type="number" name="last_done_value" step="any" placeholder="12300"></label>
+        </div>
+        <div class="row">
+          <label class="field">Categoría<input name="category" list="cats" placeholder="casa/gatos"></label>
+          <label class="field">De<select name="owner"><option value="both">Los dos</option><option value="javier">Javier</option><option value="ana">Ana</option></select></label>
+          <label class="field">Prioridad<select name="priority"><option value="0">Algún día</option><option value="1" selected>Normal</option><option value="2">Importante</option><option value="3">Crítico</option></select></label>
+        </div>
+        <label class="field">Notas<textarea name="notes" rows="2" maxlength="2000"></textarea></label>
+        <div class="actions">
+          <button type="submit" class="primary">Guardar</button>
+          <button type="button" class="ghost cancel" hidden>Cancelar</button>
+        </div>
+        <p class="msg" role="status"></p>
+      </form>
+      </details>
+      <div id="routines"></div>
+    </section>
+  </main>
+
+  <datalist id="cats"></datalist>
+  <datalist id="list-names"></datalist>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

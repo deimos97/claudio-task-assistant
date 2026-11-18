@@ -98,6 +98,11 @@ export class Eyes {
     this.pointer = { x, y, until: performance.now() + ms };
   }
 
+  /** Mirar en una dirección (-1…1 en cada eje; la usa la cámara). */
+  lookToward(x, y, ms = 1200) {
+    this.pointer = { x: clamp(x, -1, 1), y: clamp(y, -1, 1), until: performance.now() + ms };
+  }
+
   // ---------- dibujo ----------
   /** Rectángulo en bloques (admite posiciones decimales). Cada borde se redondea al
    *  píxel real, así las piezas de un mismo sprite encajan sin huecos. */

@@ -5,7 +5,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { db } from './db.ts';
 import { ANTHROPIC_KEY_FILE, localNow, PEOPLE, type Who } from './config.ts';
 import { publish } from './bus.ts';
-import { completeItem, createItem, deleteItem, InputError, listItems, updateItem, upcoming } from './items.ts';
+import { completeItem, createItem, deleteItem, InputError, isPastEvent, listItems, updateItem, upcoming } from './items.ts';
+import { nudges, seeNudge } from './nudges.ts';
 import { addToList, allLists, checkEntries, clearList, entries, removeEntries, updateEntry } from './lists.ts';
 import { assetsSummary, createRoutine, deleteRoutine, doneRoutine, listRoutines, logReading, routineLog, updateRoutine } from './routines.ts';
 import { buildView, checkSpec, PRIORITY_LABEL, type ViewSpec } from './view.ts';
@@ -55,6 +56,9 @@ Cómo usas las herramientas:
 - Listas: "apunta leche" o "añade a la compra" → list_add en la lista "Compra", con categoría de sección del súper en cada cosa ("fruta y verdura", "lácteos", "carne y pescado", "panadería", "despensa", "bebidas", "congelados", "limpieza", "higiene", "mascotas"). Lo comprado se tacha con list_check. Para ideas o notas sueltas, listas "Ideas" o "Notas" (o la que pida).
 - Rutinas: si algo se repite cada X tiempo o cada X km/horas, es una rutina (create_routine), no una tarea. Al crearla, si no sabes cuándo se hizo por última vez, pregúntalo; si no lo sabe, se queda como pendiente ya. "Ya he cambiado la arena" → routine_done (fecha de hoy salvo que diga otra). Lecturas de contadores ("el coche tiene 12.300 km") → log_reading.
 - Enseñar: si te piden ver algo ("enséñame lo de casa", "¿qué hay en la compra?", "¿qué tengo esta semana?"), o acabas de cambiar una lista o una categoría, usa show para que el panel lo enseñe. Entonces no lo enumeres en tu respuesta: un comentario corto basta ("Aquí tienes lo de casa: 3 cosas, la arena toca mañana").
+- Citas que ya pasaron sin marcar (salen como "ya pasó, sin confirmar"): cuando digan que la tuvieron, complete_item; si no fueron, ofrece cambiarla de fecha (update_item).
+- Avisos: no hablas por tu cuenta. Lo que quieres preguntar sale en pantalla como aviso y, cuando lo tocan, te llega como "Pregúntame si…" o "Dame el resumen de hoy". Entonces haz tú la pregunta a quien te habla (tú, en segunda persona), corta y natural, y termina con ella, sin explicar qué harás después ("¿Has cambiado ya la arena? ¿Cuándo?", "¿Cuántos km lleva el coche?", "¿Fuiste al fisio ayer?"). Apunta la respuesta cuando llegue (routine_done con la fecha que digan, log_reading, complete_item). Si te preguntan "¿qué querías?", pregunta por los avisos pendientes de la agenda, de uno en uno.
+- Resumen de hoy: en dos o tres frases, el tiempo, lo de hoy (citas con hora, tareas que vencen o son importantes, rutinas que tocan) y lo que conviene no olvidar mañana; y show con days 1 y sort "priority". Si te habla alguien, lo suyo y lo compartido.
 - Tras hacer cambios, confírmalos en una frase.
 - No digas que has hecho algo si la herramienta ha dado error.
 
@@ -115,7 +119,7 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: 'complete_item',
-    description: 'Marca una tarea como hecha (o como pendiente otra vez con done = false).',
+    description: 'Marca una tarea como hecha o una cita (evento) como ya tenida; done = false la deja pendiente otra vez.',
     input_schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, done: { type: 'boolean' } },
@@ -357,7 +361,8 @@ async function agendaText(): Promise<string> {
     ? `Agenda pendiente (id · tipo · cuándo · título [categoría] · de quién · prioridad si no es normal):\n${items.map((it) => {
       const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.kind === 'task' ? `límite ${it.at}` : it.at) : 'sin fecha';
       const start = it.start_at ? ` · empezar desde ${it.start_at}${it.start_at > now.date ? ' (aún no sale en pantalla)' : ''}` : '';
-      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${tags(it)}${start}${it.notes ? ` (${it.notes})` : ''}`;
+      const past = isPastEvent(it) ? ' · ya pasó, sin confirmar' : '';
+      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${tags(it)}${start}${past}${it.notes ? ` (${it.notes})` : ''}`;
     }).join('\n')}`
     : 'Agenda pendiente: vacía.');
 
@@ -383,6 +388,9 @@ async function agendaText(): Promise<string> {
   const cats = (db.prepare(`SELECT category FROM items WHERE category IS NOT NULL UNION SELECT category FROM routines WHERE category IS NOT NULL
     UNION SELECT category FROM lists WHERE category IS NOT NULL`).all() as { category: string }[]).map((r) => r.category);
   if (cats.length) out.push(`Categorías en uso: ${cats.join(', ')}.`);
+
+  const pending = nudges();
+  if (pending.length) out.push(`Avisos pendientes en pantalla (aún sin preguntar):\n${pending.map((n) => `- ${n.label}`).join('\n')}`);
 
   out.push(weatherText(await weather()));
   return out.join('\n\n');
@@ -412,6 +420,8 @@ async function turn(text: string, who: Who | null): Promise<ChatResult> {
   const history = recentMessages(HISTORY, HISTORY_HOURS);
   while (history.length && history[0].role !== 'user') history.shift();
   save('user', text, who);
+  // Pedir el resumen (tocando el aviso o de palabra) lo quita de la pantalla por hoy
+  if (/\bresumen\b|\bbriefing\b/i.test(text)) seeNudge('briefing');
   const messages: Anthropic.MessageParam[] = [
     // Cada mensaje de usuario lleva quién lo dijo: la conversación es de los dos
     ...history.map((m) => ({ role: m.role, content: m.role === 'user' && m.who ? `[${PEOPLE[m.who].name}] ${m.text}` : m.text })),

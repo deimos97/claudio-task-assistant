@@ -19,6 +19,8 @@ export type RoutineStatus = Routine & {
   due_value: number | null;   // valor del contador en que toca
   current: number | null;     // valor estimado hoy
   detail: string;             // "cada 5 días · última vez 15-11"
+  progress: number | null;    // parte del ciclo transcurrida (0 recién hecha, 1 toca, >1 pasada)
+  cycle: string | null;       // "día 3 de 5" o "≈ 12.300 / 15.000 km"
 };
 
 const COLS = 'id, title, category, asset_id, counter_id, every_days, every_amount, last_done_at, last_done_value, notes, owner, priority';
@@ -130,6 +132,20 @@ export function status(r: Routine): RoutineStatus {
   }
   const dueAt = dates.length ? dates.sort()[0] : null;
 
+  // En qué punto del ciclo estamos: por tiempo, días desde la última vez; por uso, unidades
+  const prog: number[] = [];
+  let cycle: string | null = null;
+  if (r.every_days && r.last_done_at) {
+    const elapsed = Math.max(0, toDay(today) - toDay(r.last_done_at));
+    prog.push(elapsed / r.every_days);
+    cycle = elapsed === 0 ? 'hecho hoy' : `día ${elapsed} de ${r.every_days}`;
+  }
+  if (r.every_amount && current !== null && r.last_done_value !== null) {
+    prog.push(Math.max(0, current - r.last_done_value) / r.every_amount);
+    if (dueValue !== null) cycle = [cycle, `≈ ${fmt.format(Math.round(current))} / ${fmt.format(dueValue)} ${unit}`].filter(Boolean).join(' · ');
+  }
+  const progress = prog.length ? Math.max(...prog) : r.last_done_at ? null : 1;
+
   const every = [
     r.every_days ? `cada ${r.every_days === 1 ? 'día' : `${r.every_days} días`}` : '',
     r.every_amount && unit ? `${r.every_days ? 'o ' : 'cada '}${fmt.format(r.every_amount)} ${unit}` : '',
@@ -138,7 +154,7 @@ export function status(r: Routine): RoutineStatus {
   if (r.last_done_at) parts.push(`última vez ${r.last_done_at.slice(8, 10)}-${r.last_done_at.slice(5, 7)}`);
   else parts.push('sin hacer aún');
   if (dueValue !== null && current !== null) parts.push(`≈ ${fmt.format(Math.round(current))} / ${fmt.format(dueValue)} ${unit}`);
-  return { ...r, asset, unit, due_at: dueAt, due_value: dueValue, current, detail: parts.join(' · ') };
+  return { ...r, asset, unit, due_at: dueAt, due_value: dueValue, current, detail: parts.join(' · '), progress, cycle };
 }
 
 export function listRoutines(category?: string): RoutineStatus[] {

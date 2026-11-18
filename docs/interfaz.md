@@ -8,16 +8,31 @@ Lee esto si vas a: cambiar la distribución de la pantalla, lo que enseña el pa
 ┌───────────────────────┐
 │  ojos (36 %)          │  ← en reposo; 13 % cuando Claudio enseña algo
 │  leyenda              │
+│  [☀️ Resumen de hoy ×] │  ← avisos: Claudio espera a que los toques
 ├───────────────────────┤
 │  panel                │  ← "Próximo", o la vista que pide Claudio (tarjeta que sube)
 │                       │
 ├───────────────────────┤
-│ 🌧️ 17° 💧95%  Mié - 18-11      ● K 🎤 ⌨ │  ← pie de una línea
+│ 🌧️ 17° 💧95%  Mié - 18-11   ● 🎤 📷 K │  ← pie de una línea
 └───────────────────────┘
 ```
 
 - Sin barra de arriba: la hora ya la da el iPhone (también en Acceso Guiado).
-- Pie: tiempo (lluvia solo si ≥ 40 %; máximas/mínimas en el `title`), fecha corta sin año (la larga en el `title`), punto de conexión, círculo de dispositivo (K kiosco/compartido, J Javier, A Ana; tocar cambia), micro y teclado. El chat de teclado (móvil) se abre justo encima del pie.
+- Pie: tiempo (lluvia solo si ≥ 40 %; máximas/mínimas en el `title`), fecha corta sin año (la larga en el `title`), punto de conexión, micro, cámara y menú. El botón del menú lleva la inicial del perfil (K kiosco, J Javier, A Ana).
+- Menú (sube desde el pie): teclado (abre el chat justo encima del pie; en escritorio no sale porque el chat siempre se ve), **Gestionar** (`admin.html`), perfil de este dispositivo y estados de los ojos con medidas de pantalla (lo mismo que la pulsación larga).
+- Perfil (`localStorage` `claudio.who`): **Kiosco** escucha «Claudio» siempre que el micro esté activo, habla y duerme de 23:00 a 7:30. **Javier / Ana**: el micro es pulsar para hablar (pitido, una orden, se apaga) y no duerme.
+- Cámara (`web/camera.js`): frontal a 48×36 en gris, ~9 fotogramas/s; el centro de lo que cambia entre fotogramas es hacia donde miran los ojos (en espejo). Nada sale del iPhone. Se recuerda encendida (`claudio.cam`) y se reabre al volver a la app.
+
+## Avisos (Claudio no habla solo)
+
+- `GET /api/nudges` (`server/nudges.ts`): resumen de hoy (6:00–12:30), citas pasadas sin marcar, rutinas que tocan hoy o antes y contadores con rutinas por uso cuya última lectura tiene más de 21 días. Como mucho 4.
+- Salen como botones bajo los ojos (los ojos los miran un momento al aparecer). Tocar = se manda a Claudio el `ask` ("Pregúntame si ya he hecho «…»") y él hace la pregunta; con el micro del kiosco activo la dice en voz alta y se queda escuchando; si no, se abre el teclado. La × lo quita por hoy.
+- Tocado o descartado = fila en `nudges_seen` (clave + día): no vuelve hasta mañana. Pedir "el resumen" de palabra también lo quita.
+- Claudio ve los avisos pendientes en su agenda: a "¿qué querías?" pregunta por ellos.
+
+## Gestión (`admin.html`)
+
+Página normal (con scroll) para crear, editar, completar y borrar a mano: pestañas Agenda (citas y tareas, con "ver lo hecho"), Listas (añadir con sección, tachar, quitar tachadas, borrar lista) y Rutinas (hecha hoy u otro día, editar, borrar). Usa la API de `docs/backend.md` y se refresca con los avisos en vivo.
 - Escritorio (≥ 900 px con ratón): ojos + panel + pie a la izquierda, chat a la derecha.
 - Los ojos caben en su caja (`.eyes-box`): `Eyes.resize()` ajusta el canvas a lo que quepa con la proporción 40:22 y se recalcula con un `ResizeObserver` mientras la caja encoge o crece.
 
@@ -34,16 +49,16 @@ Lee esto si vas a: cambiar la distribución de la pantalla, lo que enseña el pa
 
 | Tipo | Izquierda | Círculo |
 |---|---|---|
-| Evento | cuándo | — |
-| Tarea | cuándo (rojo si vencida) | marca hecha |
-| Rutina | cuándo toca | discontinuo: "hecho hoy" |
+| Evento | cuándo; debajo "en 25 min" / "hace 2 h" si es hoy | "la tuve"; si pasó sin marcar, borde rojo y "¿La tuviste?" |
+| Tarea | cuándo (rojo si vencida); "en 25 min" si tiene hora | marca hecha |
+| Rutina | "En 2 días" / "Hoy" / "Hace 3 días" (rojo) y el día debajo | anillo: arco = parte del ciclo pasada, número = días que faltan ("!" si toca); tocar = hecha hoy |
 | Entrada de lista | — | tacha / destacha |
 
 Tareas con margen (`start_at`): antes de empezar, a la izquierda "desde 18 ene" en gris y en el detalle el plazo; después, el plazo y "quedan N días".
 
 Delante del título: `!` importante (coral), `‼` crítico (rojo); lo de prioridad 0 ("algún día") va en gris.
 
-Debajo del título, en gris: el dueño si no es de los dos (y no es la persona de la vista), la categoría (solo en "Próximo"; las vistas ya agrupan por ella) y el detalle de la rutina ("cada 5 días · última vez 15-11").
+Debajo del título, en gris: el dueño si no es de los dos (y no es la persona de la vista), la categoría (solo en "Próximo"; las vistas ya agrupan por ella) y el punto del ciclo de la rutina ("día 3 de 5", o "≈ 12.300 / 15.000 km"). La fila se repinta cada minuto para que "en 25 min" no se quede viejo.
 
 ## Monkey noises
 

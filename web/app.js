@@ -1,9 +1,35 @@
 import { Eyes } from './eyes.js';
 import { Ears, wakeWord } from './voice.js';
+import { Watcher } from './camera.js';
 
 const $ = (id) => document.getElementById(id);
 const eyes = new Eyes($('eyes'));
 window.claudio = { eyes }; // para depurar desde la consola
+
+// ---------- Quién habla: Javier o Ana ----------
+// Por voz, el tono medio de la frase (grave = Javier, agudo = Ana); si cae en la zona de
+// duda, el dueño del dispositivo. Por teclado, el dueño del dispositivo (botón del pie).
+const WHO_PREF = 'claudio.who';
+const PEOPLE = { javier: 'Javier', ana: 'Ana' };
+// Corte en Hz entre voz grave y aguda; ajustable: localStorage.setItem('claudio.pitchSplit', 160)
+const PITCH_SPLIT = (() => { try { return Number(localStorage.getItem('claudio.pitchSplit')) || 150; } catch { return 150; } })();
+const PITCH_DOUBT = 10;  // ±Hz alrededor del corte en los que no se decide
+let lastPitch = null;
+function deviceWho() {
+  try { const w = localStorage.getItem(WHO_PREF); return w in PEOPLE ? w : null; } catch { return null; }
+}
+function whoFromPitch(f0) {
+  lastPitch = f0;
+  if (!f0) return null;
+  if (f0 < PITCH_SPLIT - PITCH_DOUBT) return 'javier';
+  if (f0 > PITCH_SPLIT + PITCH_DOUBT) return 'ana';
+  return null;
+}
+/** Kiosco = el iPhone de la mesa (compartido): escucha "Claudio", habla y duerme de noche.
+ *  El móvil de Javier o de Ana: el micro es "pulsar para hablar" y no duerme. */
+const isKiosk = () => !deviceWho();
+window.claudio.who = () => ({ device: deviceWho(), lastPitch, split: PITCH_SPLIT });
+
 
 // ---------- Pie: fecha y tiempo ----------
 // La hora ya la da el iPhone (también en modo kiosco): aquí solo "Mié - 18-11".
@@ -45,7 +71,7 @@ function isNight() {
   return m >= NIGHT_FROM || m < NIGHT_TO;
 }
 function applyNight() {
-  const night = isNight() && Date.now() > manualUntil;
+  const night = isKiosk() && isNight() && Date.now() > manualUntil;
   document.body.classList.toggle('night', night);
   if (night) eyes.setState('sleeping');
   else if (eyes.state === 'sleeping') eyes.setState('idle');
@@ -154,25 +180,89 @@ const SHOW_MS = 60_000;
 let viewSpec = null;   // null = "Próximo"
 let showTimer = null;
 let turnShown = false; // ¿la respuesta en curso ha enseñado algo?
+let lastView = null;   // para repintar cada minuto ("en 25 min") sin pedirla otra vez
+
+// "en 2 h 10 min", "en 25 min", "hace 1 h": solo cuando falta (o pasó) menos de un día
+function untilLabel(at) {
+  if (!at || !at.includes('T')) return null;
+  const mins = Math.round((new Date(`${at}:00`) - Date.now()) / 60_000);
+  const abs = Math.abs(mins);
+  if (abs >= 24 * 60) return null;
+  const h = Math.floor(abs / 60), m = abs % 60;
+  const txt = h ? (m && h < 5 ? `${h} h ${m} min` : `${h} h`) : `${Math.max(1, m)} min`;
+  return mins >= 0 ? `en ${txt}` : `hace ${txt}`;
+}
+// Días que faltan para una fecha "YYYY-MM-DD" (negativo si pasó)
+const daysTo = (date) => Math.round((new Date(`${date.slice(0, 10)}T12:00`) - new Date(`${isoDate(new Date())}T12:00`)) / DAY);
+function relDays(n) {
+  if (n === 0) return 'Hoy';
+  if (n === 1) return 'Mañana';
+  if (n === -1) return 'Ayer';
+  return n > 0 ? `En ${n} días` : `Hace ${-n} días`;
+}
+
+// Círculo de una rutina: el arco es la parte del ciclo que ya ha pasado; dentro, los días
+// que faltan ("!" si ya toca). Tocarlo = "hecho hoy".
+function ringEl(r) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 36 36');
+  svg.setAttribute('aria-hidden', 'true');
+  const p = Math.max(0, Math.min(1, r.progress ?? 0));
+  const left = r.at ? daysTo(r.at) : null;
+  const due = left !== null && left <= 0;
+  const track = document.createElementNS(NS, 'circle');
+  track.setAttribute('class', 'track');
+  const arc = document.createElementNS(NS, 'circle');
+  arc.setAttribute('class', 'arc' + (due ? ' due' : p >= 0.8 ? ' soon' : ''));
+  arc.setAttribute('pathLength', '100');
+  arc.setAttribute('stroke-dasharray', `${Math.max(0.01, p * 100)} 100`);
+  for (const c of [track, arc]) { c.setAttribute('cx', '18'); c.setAttribute('cy', '18'); c.setAttribute('r', '15'); svg.appendChild(c); }
+  const t = document.createElementNS(NS, 'text');
+  t.setAttribute('x', '18'); t.setAttribute('y', '18');
+  t.textContent = left === null ? '?' : due ? '!' : left > 99 ? '99+' : String(left);
+  svg.appendChild(t);
+  return svg;
+}
 
 function rowEl(r) {
   const li = document.createElement('li');
+  li.classList.add(r.kind);
   if (r.done) li.classList.add('done');
   // Tarea con margen: antes de empezar, "desde 17 nov"; después, el plazo y los días que quedan
   const today = isoDate(new Date());
   const waiting = r.kind === 'task' && r.start_at && r.start_at > today;
   let margin = null;
   if (r.kind === 'task' && r.start_at && r.at) {
-    const left = Math.round((new Date(`${r.at.slice(0, 10)}T12:00`) - new Date(`${today}T12:00`)) / DAY);
+    const left = daysTo(r.at);
     margin = waiting ? `plazo ${whenLabel(r.at).text.toLowerCase()}` : left > 1 ? `quedan ${left} días` : null;
   }
+  if (r.past) li.classList.add('past');
+
   if (r.kind !== 'entry') {
-    const w = whenLabel(waiting ? r.start_at : r.at);
     const when = document.createElement('span');
-    when.className = 'when' + (w.overdue && r.kind !== 'event' && !waiting ? ' overdue' : '') + (waiting ? ' waiting' : '');
-    when.textContent = r.kind === 'routine' && !r.at ? 'Sin estimar' : waiting ? `desde ${w.text.toLowerCase()}` : w.text;
+    when.className = 'when';
+    const top = document.createElement('span');
+    const sub = document.createElement('small');
+    if (r.kind === 'routine') {
+      // Rutinas: relativo ("En 2 días"), con el día debajo
+      const n = r.at ? daysTo(r.at) : null;
+      top.textContent = n === null ? 'Sin estimar' : relDays(n);
+      if (n !== null && n < 0) when.classList.add('overdue');
+      if (n !== null && Math.abs(n) > 1) sub.textContent = whenLabel(r.at).text;
+    } else {
+      const w = whenLabel(waiting ? r.start_at : r.at);
+      top.textContent = waiting ? `desde ${w.text.toLowerCase()}` : w.text;
+      if (waiting) when.classList.add('waiting');
+      else if (w.overdue && (r.kind === 'task' || r.past)) when.classList.add('overdue');
+      const u = waiting ? null : untilLabel(r.at);
+      if (u) { sub.textContent = u; if (!r.past && u.startsWith('en') && !u.includes('h')) sub.className = 'soon'; }
+    }
+    when.appendChild(top);
+    if (sub.textContent) when.appendChild(sub);
     li.appendChild(when);
   }
+
   const main = document.createElement('span');
   main.className = 'main';
   const title = document.createElement('span');
@@ -190,7 +280,8 @@ function rowEl(r) {
   // La categoría solo en "Próximo" (las vistas de Claudio ya agrupan); el dueño, si no es de los dos
   const cat = r.category ? r.category.split('/').map((c) => c[0].toUpperCase() + c.slice(1)).join(' › ') : null;
   const owner = r.owner && viewSpec?.who !== r.owner ? PEOPLE[r.owner] : null;
-  const meta = [owner, viewSpec ? null : cat, margin, r.detail].filter(Boolean).join(' · ');
+  const info = r.kind === 'routine' ? (r.cycle ?? r.detail) : r.past ? '¿La tuviste? Márcala o pídeme cambiarla' : r.detail;
+  const meta = [owner, viewSpec ? null : cat, margin, info].filter(Boolean).join(' · ');
   if (meta) {
     const m = document.createElement('span');
     m.className = 'meta';
@@ -198,20 +289,27 @@ function rowEl(r) {
     main.appendChild(m);
   }
   li.appendChild(main);
-  if (r.kind !== 'event') {
-    const check = document.createElement('button');
-    check.className = 'check' + (r.kind === 'routine' ? ' loop' : '');
-    check.type = 'button';
-    check.setAttribute('aria-label', r.kind === 'routine' ? `Hecho hoy: "${r.title}"` : `Marcar "${r.title}"`);
-    check.addEventListener('click', () => markDone(r, li));
-    li.appendChild(check);
+
+  const check = document.createElement('button');
+  check.type = 'button';
+  if (r.kind === 'routine') {
+    check.className = 'check ring';
+    check.appendChild(ringEl(r));
+    check.setAttribute('aria-label', `Hecho hoy: "${r.title}"`);
+    check.title = r.detail ?? '';
+  } else {
+    check.className = 'check';
+    check.setAttribute('aria-label', r.kind === 'event' ? `Ya la tuve: "${r.title}"` : `Marcar "${r.title}"`);
   }
+  check.addEventListener('click', () => markDone(r, li));
+  li.appendChild(check);
   return li;
 }
 
 function renderView(v) {
   $('panel-title').textContent = v.title;
   const box = $('panel-body');
+  const keep = box.scrollTop;
   box.innerHTML = '';
   const groups = v.groups.filter((g) => g.rows.length);
   if (!groups.length) {
@@ -233,6 +331,7 @@ function renderView(v) {
     for (const r of g.rows) ul.appendChild(rowEl(r));
     box.appendChild(ul);
   }
+  box.scrollTop = keep;
 }
 
 async function loadView() {
@@ -243,6 +342,7 @@ async function loadView() {
     const v = await r.json();
     if (spec !== viewSpec) return; // cambió mientras tanto
     if (!r.ok) { if (spec) hideView(); return; }
+    lastView = v;
     renderView(v);
   } catch { /* se queda lo último pintado */ }
 }
@@ -288,7 +388,7 @@ window.claudio.show = showView; // depurar: claudio.show({ list: 'Compra' })
 async function markDone(r, li) {
   const undo = r.kind === 'entry' && r.done;
   li.classList.toggle('done', !undo);
-  const url = { task: 'items', routine: 'routines', entry: 'entries' }[r.kind];
+  const url = { event: 'items', task: 'items', routine: 'routines', entry: 'entries' }[r.kind];
   try {
     const res = await fetch(`api/${url}/${r.id}/done`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: !undo }),
@@ -304,6 +404,7 @@ async function markDone(r, li) {
 renderView({ title: 'Próximo', groups: [] });
 loadView();
 setInterval(loadView, 5 * 60_000); // red de seguridad; lo normal es el aviso en vivo
+setInterval(() => { if (lastView && !document.hidden) renderView(lastView); }, 60_000);
 
 // ---------- Reacciones de los ojos ----------
 let reactTimer = null;
@@ -436,50 +537,52 @@ $('chat-input').addEventListener('blur', unscroll);
 window.visualViewport?.addEventListener('resize', unscroll);
 window.addEventListener('scroll', () => { if (scrollY && document.activeElement?.tagName !== 'INPUT') unscroll(); }, { passive: true });
 
-// Botón de teclado (móvil): abre y cierra el chat
-$('kbd').addEventListener('click', () => {
-  const open = document.body.classList.toggle('chat-open');
+// Teclado (en el menú, móvil): abre y cierra el chat
+function toggleChat(force) {
+  const open = document.body.classList.toggle('chat-open', force);
   $('kbd').setAttribute('aria-expanded', String(open));
   if (open) { log.scrollTop = log.scrollHeight; $('chat-input').focus(); eyes.setState('listening'); }
   else { $('chat-input').blur(); if (eyes.state === 'listening') eyes.setState('idle'); }
-});
+}
+$('kbd').addEventListener('click', () => { closeMenu(); toggleChat(); });
 
-// ---------- Quién habla: Javier o Ana ----------
-// Por voz, el tono medio de la frase (grave = Javier, agudo = Ana); si cae en la zona de
-// duda, el dueño del dispositivo. Por teclado, el dueño del dispositivo (botón del pie).
-const WHO_PREF = 'claudio.who';
-const PEOPLE = { javier: 'Javier', ana: 'Ana' };
-// Corte en Hz entre voz grave y aguda; ajustable: localStorage.setItem('claudio.pitchSplit', 160)
-const PITCH_SPLIT = (() => { try { return Number(localStorage.getItem('claudio.pitchSplit')) || 150; } catch { return 150; } })();
-const PITCH_DOUBT = 10;  // ±Hz alrededor del corte en los que no se decide
-let lastPitch = null;
-function deviceWho() {
-  try { const w = localStorage.getItem(WHO_PREF); return w in PEOPLE ? w : null; } catch { return null; }
-}
-function whoFromPitch(f0) {
-  lastPitch = f0;
-  if (!f0) return null;
-  if (f0 < PITCH_SPLIT - PITCH_DOUBT) return 'javier';
-  if (f0 > PITCH_SPLIT + PITCH_DOUBT) return 'ana';
-  return null;
-}
+// ---------- Menú del pie: teclado, gestión, perfil del dispositivo, depurar ----------
+const menuPop = $('menu-pop');
+function closeMenu() { menuPop.hidden = true; $('menu').setAttribute('aria-expanded', 'false'); }
+$('menu').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  menuPop.hidden = !menuPop.hidden;
+  $('menu').setAttribute('aria-expanded', String(!menuPop.hidden));
+});
+document.addEventListener('pointerdown', (ev) => {
+  if (!menuPop.hidden && !menuPop.contains(ev.target) && ev.target !== $('menu')) closeMenu();
+});
 function setWhoUi() {
   const w = deviceWho();
-  const b = $('who');
+  const b = $('menu');
   b.textContent = w ? PEOPLE[w][0] : 'K';
   b.classList.toggle('on', !!w);
-  b.title = w ? `Dispositivo de ${PEOPLE[w]}` : 'Kiosco (compartido): por voz distingue por el tono';
+  b.title = w ? `Móvil de ${PEOPLE[w]}` : 'Kiosco (compartido)';
+  for (const x of menuPop.querySelectorAll('[data-who]')) x.setAttribute('aria-checked', String((x.dataset.who || null) === w));
+  $('menu-hint').textContent = w
+    ? `Micro: pulsar para hablar. Te contesto como a ${PEOPLE[w]}.`
+    : 'Escucha «Claudio», habla y duerme de noche. Os distingo por la voz.';
 }
-// Círculo del pie: K (kiosco, compartido) → J (Javier) → A (Ana)
-$('who').addEventListener('click', () => {
-  const order = [null, 'javier', 'ana'];
-  const next = order[(order.indexOf(deviceWho()) + 1) % order.length];
-  try { if (next) localStorage.setItem(WHO_PREF, next); else localStorage.removeItem(WHO_PREF); } catch {}
-  setWhoUi();
-  say(next ? `Vale, este es el dispositivo de ${PEOPLE[next]}.` : 'Vale, este es el kiosco: os distingo por la voz.');
+for (const x of menuPop.querySelectorAll('[data-who]')) {
+  x.addEventListener('click', () => {
+    const next = x.dataset.who || null;
+    try { if (next) localStorage.setItem(WHO_PREF, next); else localStorage.removeItem(WHO_PREF); } catch {}
+    setWhoUi();
+    applyRole();
+    say(next ? `Vale, este es el móvil de ${PEOPLE[next]}.` : 'Vale, este es el kiosco: os distingo por la voz.');
+  });
+}
+$('menu-debug').addEventListener('click', () => {
+  closeMenu();
+  $('debug').hidden = !$('debug').hidden;
+  if (!$('debug').hidden) showMetrics();
 });
 setWhoUi();
-window.claudio.who = () => ({ device: deviceWho(), lastPitch, split: PITCH_SPLIT });
 
 // ---------- Voz ----------
 // Modos: idle (espera "Claudio"), command (tras el pitido, espera la orden), busy (transcribiendo/pensando/hablando).
@@ -508,8 +611,9 @@ async function startVoice() {
     ears.onLevel = (speaking) => { if (voiceMode === 'command' && speaking) clearTimeout(commandTimer); };
     await ears.start();
     voiceMode = 'idle';
-    try { localStorage.setItem(VOICE_PREF, 'on'); } catch {}
     setMicUi();
+    // En un móvil personal no se espera a "Claudio": pulsar el micro = te escucho ya
+    if (!isKiosk()) enterCommand();
     return true;
   } catch (e) {
     voiceMode = 'off';
@@ -525,9 +629,11 @@ function stopVoice() {
   ears = null;
   voiceMode = 'off';
   clearTimeout(commandTimer);
-  try { localStorage.setItem(VOICE_PREF, 'off'); } catch {}
   setMicUi();
+  if (eyes.state === 'listening') react('idle', 0);
 }
+const setVoicePref = (on) => { try { localStorage.setItem(VOICE_PREF, on ? 'on' : 'off'); } catch {} };
+const voicePref = () => { try { return localStorage.getItem(VOICE_PREF) === 'on'; } catch { return false; } };
 
 function enterCommand() {
   if (!ears) return;
@@ -545,6 +651,7 @@ function enterCommand() {
 function backToIdle() {
   clearTimeout(commandTimer);
   if (voiceMode === 'off') return;
+  if (!isKiosk()) { stopVoice(); return; } // pulsar para hablar: acabada la orden, se apaga
   voiceMode = 'idle';
   setMicUi();
   if (eyes.state === 'listening' || eyes.state === 'thinking') react('idle', 0);
@@ -607,21 +714,130 @@ async function speakReply(text, who = null) {
 }
 
 window.claudio.voice = () => ({ mode: voiceMode, ears }); // depurar desde la consola
-$('mic').addEventListener('click', () => { if (voiceMode === 'off') startVoice(); else stopVoice(); });
-// Si estaba activada, se intenta al cargar; si iOS exige un toque, el primero que llegue la arranca.
-try {
-  if (localStorage.getItem(VOICE_PREF) === 'on') {
-    startVoice().then((ok) => {
-      if (ok) return;
-      document.addEventListener('pointerdown', () => { if (voiceMode === 'off') startVoice(); }, { once: true });
-    });
+$('mic').addEventListener('click', () => {
+  if (voiceMode === 'off') { startVoice(); if (isKiosk()) setVoicePref(true); }
+  else { stopVoice(); if (isKiosk()) setVoicePref(false); }
+});
+// Solo el kiosco escucha siempre: si estaba activada, se intenta al cargar; si iOS exige
+// un toque, el primero que llegue la arranca.
+function autoVoice() {
+  if (!isKiosk() || !voicePref() || voiceMode !== 'off') return;
+  startVoice().then((ok) => {
+    if (ok) return;
+    document.addEventListener('pointerdown', () => { if (voiceMode === 'off' && isKiosk()) startVoice(); }, { once: true });
+  });
+}
+autoVoice();
+
+// Al cambiar el perfil del dispositivo: el kiosco escucha y duerme; un móvil, no
+function applyRole() {
+  if (!isKiosk() && voiceMode !== 'off') stopVoice();
+  $('mic').title = isKiosk() ? 'Voz: escuchar «Claudio»' : 'Pulsa para hablar';
+  $('mic').setAttribute('aria-label', $('mic').title);
+  applyNight();
+  autoVoice();
+}
+applyRole();
+
+// ---------- Avisos: lo que Claudio quiere decir, esperando a que lo toques ----------
+// Claudio no habla solo (podría no haber nadie). Lo que quiere decir o preguntar
+// (resumen de la mañana, "¿has cambiado la arena?", "¿cuántos km lleva el coche?") sale
+// como botón bajo los ojos; al tocarlo, lo pregunta (en voz alta si el micro está activo).
+const NUDGE_ICON = { briefing: '☀️', routine: '🔁', reading: '🔢', event: '📅' };
+let nudgeKeys = '';
+async function loadNudges() {
+  try {
+    const r = await fetch('api/nudges', { cache: 'no-store' });
+    if (r.ok) renderNudges((await r.json()).nudges ?? []);
+  } catch { /* se quedan los de antes */ }
+}
+function renderNudges(list) {
+  const box = $('nudges');
+  box.innerHTML = '';
+  for (const n of list) {
+    const chip = document.createElement('span');
+    chip.className = `nudge ${n.kind}`;
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'nudge-go';
+    go.textContent = `${NUDGE_ICON[n.kind] ?? '💬'} ${n.label}`;
+    go.addEventListener('click', () => openNudge(n, chip));
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'nudge-x';
+    x.setAttribute('aria-label', `Ahora no: ${n.label}`);
+    x.textContent = '×';
+    x.addEventListener('click', () => { chip.remove(); markSeen(n.key); });
+    chip.append(go, x);
+    box.appendChild(chip);
   }
-} catch {}
+  // Si hay algo nuevo, Claudio lo mira un momento: "tengo algo para ti"
+  const keys = list.map((n) => n.key).join(',');
+  if (keys && keys !== nudgeKeys && !document.body.classList.contains('night')) {
+    const r = box.getBoundingClientRect();
+    eyes.lookAt(r.left + r.width / 2, r.top + r.height / 2, 1600);
+    if (eyes.state === 'idle') react('happy', 1400);
+  }
+  nudgeKeys = keys;
+}
+const markSeen = (key) => fetch('api/nudges/seen', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }),
+}).catch(() => {});
+async function openNudge(n, chip) {
+  if (waiting) return;
+  chip.remove();
+  markSeen(n.key);
+  const who = deviceWho();
+  const listening = ears && voiceMode === 'idle';
+  if (listening) { voiceMode = 'busy'; setMicUi(); }
+  const reply = await sendChat(n.ask, who);
+  if (!reply) { if (listening) backToIdle(); return; }
+  const asks = reply.includes('?');
+  if (listening) {
+    await speakReply(reply, who);
+    if (asks) enterCommand(); else backToIdle();
+  } else if (asks && !matchMedia('(min-width: 900px) and (pointer: fine)').matches) {
+    toggleChat(true); // sin micro, se contesta por teclado
+  }
+}
+loadNudges();
+setInterval(loadNudges, 5 * 60_000);
+
+// ---------- Cámara: los ojos te siguen ----------
+const CAM_PREF = 'claudio.cam';
+let watcher = null;
+function setCamUi() {
+  const on = !!watcher?.running;
+  $('cam').classList.toggle('on', on);
+  $('cam').setAttribute('aria-pressed', String(on));
+}
+async function startCam() {
+  watcher ??= new Watcher((x, y) => {
+    if (document.body.classList.contains('night')) return;
+    eyes.lookToward(x * 2 - 1, (y * 2 - 1) * 0.9, 1500);
+  });
+  try {
+    await watcher.start();
+  } catch (e) {
+    watcher = null;
+    say(e?.name === 'NotAllowedError' ? 'No tengo permiso para usar la cámara.' : 'No he podido abrir la cámara.', { error: true });
+  }
+  setCamUi();
+}
+function stopCam() { watcher?.stop(); watcher = null; setCamUi(); }
+const camPref = () => { try { return localStorage.getItem(CAM_PREF) === 'on'; } catch { return false; } };
+$('cam').addEventListener('click', () => {
+  const on = !watcher?.running;
+  try { localStorage.setItem(CAM_PREF, on ? 'on' : 'off'); } catch {}
+  if (on) startCam(); else stopCam();
+});
+if (camPref()) startCam();
+window.claudio.cam = () => watcher;
 
 // ---------- Avisos en vivo (SSE) ----------
 function connectStream() {
   const es = new EventSource('api/stream');
-  es.addEventListener('items', () => loadView());
+  es.addEventListener('items', () => { loadView(); loadNudges(); });
   es.addEventListener('show', (ev) => {
     try { showView(JSON.parse(ev.data)); } catch { /* aviso raro */ }
   });
@@ -629,7 +845,7 @@ function connectStream() {
     try { addMessage(JSON.parse(ev.data)); } catch { /* mensaje raro */ }
   });
   // EventSource reconecta solo; al volver, refrescamos por si nos perdimos algo.
-  es.addEventListener('hello', () => { loadView(); });
+  es.addEventListener('hello', () => { loadView(); loadNudges(); });
 }
 connectStream();
 
@@ -665,7 +881,10 @@ async function keepAwake() {
 }
 keepAwake();
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { keepAwake(); checkHealth(); loadView(); loadWeather(); }
+  if (document.visibilityState === 'visible') {
+    keepAwake(); checkHealth(); loadView(); loadWeather(); loadNudges();
+    if (camPref() && !watcher?.running) startCam(); // iOS apaga la cámara al salir de la app
+  }
 });
 
 // ---------- Service worker (para instalar la PWA) ----------

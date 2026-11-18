@@ -2,7 +2,7 @@
 
 Asistente de Javier y Ana (pareja) que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado (2026-11-18): en producción, fase 1 y base de la fase 2: agenda, listas, categorías, rutinas de mantenimiento, tiempo, panel dinámico, chat con Haiku por teclado y voz. Solo en dev, pendiente de PR: dos personas (Javier y Ana: dueño de cada cosa, quién habla por el tono de voz o el círculo K/J/A del pie, Jorge o Mónica al contestar), subcategorías, prioridad 0–3 y plazos con antelación (`start_at`). Producción se despliega sola al mergear a `main`. Google Calendar y la voz definitiva en castellano, en la fase 5. Ver `ROADMAP.md`.
+Estado (2026-11-18): en producción, fase 1 y base de la fase 2: agenda, listas, categorías, rutinas de mantenimiento, tiempo, panel dinámico, chat con Haiku por teclado y voz. Solo en dev, pendiente de PR: dos personas (Javier y Ana: dueño de cada cosa, quién habla por el tono de voz o el perfil del dispositivo, Jorge o Mónica al contestar), subcategorías, prioridad 0–3, plazos con antelación (`start_at`), avisos en pantalla (resumen de la mañana, "¿has cambiado la arena?", citas pasadas sin marcar), perfil kiosco/móvil, ojos que siguen con la cámara y página de gestión (`admin.html`). Producción se despliega sola al mergear a `main`. Google Calendar y la voz definitiva en castellano, en la fase 5. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -37,12 +37,15 @@ server/lists.ts        listas (compra, ideas…) y sus entradas
 server/routines.ts     mantenimiento: activos, contadores, lecturas, rutinas y su próxima fecha
 server/view.ts         lo que enseña el panel: "Próximo" o la vista que pide Claudio (`show`)
 server/weather.ts      tiempo de Open-Meteo (caché 15 min)
+server/nudges.ts       avisos que esperan en pantalla a que se toquen (resumen, rutinas, km, citas pasadas)
 server/chat.ts         chat con Claude Haiku (claude-haiku-5-5) y sus herramientas
 server/bus.ts          avisos en vivo (SSE) a todas las pantallas
 server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, `say` Jorge (es) y Kokoro Heart (en, 127.0.0.1:3121)
-web/index.html         página única: ojos arriba, panel abajo, pie (tiempo, fecha, conexión, micro, teclado)
+web/index.html         página única: ojos y avisos arriba, panel abajo, pie (tiempo, fecha, conexión, micro, cámara, menú)
+web/admin.html/.js/.css  gestión a mano: agenda, listas y rutinas
+web/camera.js          ojos que te siguen: cámara frontal a baja resolución, sigue el movimiento
 web/eyes.js            ojos en pixel art: forma en "bloques" (escena de 40×22) pero posición continua a resolución real → movimiento suave. Estados: idle, listening, thinking, talking, happy, sleepy, sleeping
-web/app.js             fecha y tiempo, modo noche, panel dinámico, chat por teclado, voz, avisos en vivo, salud + auto-recarga, wake lock
+web/app.js             fecha y tiempo, modo noche, panel dinámico, avisos, menú y perfil, chat por teclado, voz, cámara, avisos en vivo, salud + auto-recarga, wake lock
 web/voice.js           oídos: micro → 16 kHz → VAD → frases WAV; pitido; reproducir la voz; detectar "Claudio"
 web/capture-worklet.js hilo de audio que pasa las muestras del micro
 web/sw.js              service worker (red primero; la API nunca se cachea)
@@ -94,7 +97,8 @@ Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/
 - **Contador:** km, horas de motor, lavados…
 - **Lectura:** valor fechado de un contador. Con varias lecturas se estima el ritmo de uso (km/día).
 - **Rutina** (tarea de mantenimiento, tabla `routines`): disparada por tiempo, por uso, o *lo que llegue antes* (p. ej. neumáticos: 5 años o 40.000 km). Con el ritmo de uso se proyecta una fecha y aparece en la misma lista que los eventos.
-- **Check-in:** Claudio pide una lectura cuando la estimación está vieja o se acerca un vencimiento proyectado.
+- **Aviso (check-in):** lo que Claudio quiere decir o preguntar (resumen de la mañana, rutina que toca, km del coche, cita pasada sin marcar). Nunca lo dice solo: sale como botón bajo los ojos y lo pregunta al tocarlo.
+- **Perfil del dispositivo:** Kiosco (el iPhone de la mesa: escucha, habla, duerme de noche) o el móvil de Javier / Ana (pulsar para hablar).
 
 ## Reglas
 
@@ -112,5 +116,5 @@ Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/
 | Desplegar o cambiar cómo se despliega | `docs/despliegue.md` |
 | Tocar dominios, certificados, DNS o el nginx de la Raspberry | `docs/servidor-pi.md` |
 | Tocar la BD, migraciones, copias, el chat con Haiku, sus herramientas, listas, rutinas o la clave de Anthropic | `docs/backend.md` |
-| Tocar la interfaz: panel dinámico, pie, ojos | `docs/interfaz.md` |
+| Tocar la interfaz: panel dinámico, pie, menú, avisos, cámara, ojos, gestión | `docs/interfaz.md` |
 | Tocar la voz: micro, wake word, whisper, `say` | `docs/voz.md` |

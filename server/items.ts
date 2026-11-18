@@ -84,19 +84,33 @@ function mustGet(id: unknown): Item {
   return item;
 }
 
-/** Lo que aparece en "Próximo": tareas abiertas (vencidas incluidas) y eventos que no han pasado.
+/** Un evento sin marcar sigue en pantalla (en rojo, "¿lo tuviste?") hasta 30 días después. */
+export const PAST_EVENT_DAYS = 30;
+export function pastCutoff(): string {
+  const d = new Date(`${localNow().date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - PAST_EVENT_DAYS);
+  return d.toISOString().slice(0, 10);
+}
+/** ¿Ya ha pasado este evento? (los de todo el día, al acabar el día) */
+export function isPastEvent(it: Pick<Item, 'kind' | 'at' | 'end_at'>): boolean {
+  if (it.kind !== 'event' || !it.at) return false;
+  const end = it.end_at ?? it.at;
+  const { stamp, date } = localNow();
+  return end.length === 10 ? end < date : end < stamp;
+}
+
+/** Lo que aparece en "Próximo": tareas abiertas (vencidas incluidas) y eventos sin marcar
+ *  (los pasados, hasta 30 días, para confirmar que se tuvieron o reprogramarlos).
  *  Las tareas con start_at futuro esperan, salvo con includeWaiting (la agenda que ve Claudio). */
 export function upcoming(limit = 40, includeWaiting = false): Item[] {
-  const { stamp, date } = localNow();
+  const { date } = localNow();
   return db.prepare(`
     SELECT ${COLS} FROM items
     WHERE done_at IS NULL
-      AND (kind = 'task'
-           OR at IS NULL
-           OR COALESCE(end_at, at) >= CASE WHEN length(COALESCE(end_at, at)) = 10 THEN ? ELSE ? END)
+      AND (kind = 'task' OR at IS NULL OR COALESCE(end_at, at) >= ?)
       AND (? OR start_at IS NULL OR start_at <= ?)
     ORDER BY COALESCE(start_at, at) IS NULL, at IS NULL, at, id
-    LIMIT ?`).all(date, stamp, includeWaiting ? 1 : 0, date, limit) as Item[];
+    LIMIT ?`).all(pastCutoff(), includeWaiting ? 1 : 0, date, limit) as Item[];
 }
 
 export function listItems(opts: { includeDone?: boolean; from?: string; to?: string; category?: string } = {}): Item[] {

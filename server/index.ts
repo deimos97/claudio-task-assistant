@@ -11,11 +11,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { DB_FILE, ENV, isWho, PORT, ROOT } from './config.ts';
 import './db.ts';
 import { subscribe } from './bus.ts';
-import { completeItem, InputError, upcoming } from './items.ts';
+import { completeItem, createItem, deleteItem, getItem, InputError, listItems, updateItem, upcoming } from './items.ts';
 import { chat, chatConfigured, recentMessages, usageSummary } from './chat.ts';
 import { speak, transcribe, VoiceError } from './voice.ts';
-import { checkEntries } from './lists.ts';
-import { doneRoutine } from './routines.ts';
+import { addToList, allLists, checkEntries, clearList, entries, removeEntries, updateEntry } from './lists.ts';
+import { createRoutine, deleteRoutine, doneRoutine, listRoutines, updateRoutine } from './routines.ts';
+import { nudges, seeNudge } from './nudges.ts';
 import { buildView, checkSpec } from './view.ts';
 import { weather } from './weather.ts';
 
@@ -74,18 +75,60 @@ app.get('/api/view', (c) => {
 });
 
 // Marcar como hecho desde la pantalla: tareas, rutinas y entradas de lista.
-const done = (fn: (id: number, done: boolean) => unknown) => async (c: Context) => {
+const done = (fn: (id: number, done: boolean, body: Record<string, unknown>) => unknown) => async (c: Context) => {
   try {
-    const body = await c.req.json().catch(() => ({}));
-    return c.json({ ok: true, result: fn(Number(c.req.param('id')), body?.done !== false) });
+    const body = (await c.req.json().catch(() => ({}))) ?? {};
+    return c.json({ ok: true, result: fn(Number(c.req.param('id')), body?.done !== false, body) });
   } catch (e) {
     if (e instanceof InputError) return c.json({ error: e.message }, 404);
     throw e;
   }
 };
 app.post('/api/items/:id/done', done((id, d) => completeItem(id, d)));
-app.post('/api/routines/:id/done', done((id) => doneRoutine({ id })));
+app.post('/api/routines/:id/done', done((id, _d, b) => doneRoutine({ id, done_at: b.done_at, value: b.value })));
 app.post('/api/entries/:id/done', done((id, d) => checkEntries([id], d)));
+
+// Avisos que esperan en pantalla a que alguien los toque (ver server/nudges.ts)
+app.get('/api/nudges', (c) => c.json({ nudges: nudges() }));
+app.post('/api/nudges/seen', async (c) => {
+  try {
+    seeNudge((await c.req.json().catch(() => ({})))?.key);
+    return c.json({ ok: true });
+  } catch (e) {
+    if (e instanceof InputError) return c.json({ error: e.message }, 400);
+    throw e;
+  }
+});
+
+// ---------- Gestión (web/admin.html): crear, cambiar y borrar sin pasar por Claudio ----------
+type Handler = (c: Context) => unknown | Promise<unknown>;
+const api = (fn: Handler) => async (c: Context) => {
+  try {
+    return c.json(await fn(c) ?? { ok: true });
+  } catch (e) {
+    if (e instanceof InputError) return c.json({ error: e.message }, 400);
+    throw e;
+  }
+};
+const body = async (c: Context) => ((await c.req.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
+const idOf = (c: Context) => Number(c.req.param('id'));
+
+app.get('/api/items', api((c) => ({ items: listItems({ includeDone: c.req.query('done') === '1' }) })));
+app.post('/api/items', api(async (c) => createItem(await body(c))));
+app.post('/api/items/:id', api(async (c) => updateItem({ ...(await body(c)), id: idOf(c) })));
+app.delete('/api/items/:id', api((c) => deleteItem(idOf(c))));
+app.get('/api/items/:id', api((c) => getItem(idOf(c)) ?? (() => { throw new InputError('no existe'); })()));
+
+app.get('/api/lists', api(() => ({ lists: allLists().map((l) => ({ ...l, entries: entries(l.id, true) })) })));
+app.post('/api/lists/entries', api(async (c) => addToList(await body(c))));
+app.post('/api/lists/clear', api(async (c) => { const b = await body(c); return clearList(b.list, b.whole === true); }));
+app.post('/api/entries/:id', api(async (c) => updateEntry({ ...(await body(c)), id: idOf(c) })));
+app.delete('/api/entries/:id', api((c) => ({ removed: removeEntries([idOf(c)]) })));
+
+app.get('/api/routines', api(() => ({ routines: listRoutines() })));
+app.post('/api/routines', api(async (c) => createRoutine(await body(c))));
+app.post('/api/routines/:id', api(async (c) => updateRoutine({ ...(await body(c)), id: idOf(c) })));
+app.delete('/api/routines/:id', api((c) => deleteRoutine(idOf(c))));
 
 app.get('/api/weather', async (c) => {
   const w = await weather();

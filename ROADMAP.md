@@ -73,10 +73,12 @@
 ## Fase 3 — Proactividad (y mejoras de voz)
 
 - [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase
-- [ ] Check-ins proactivos (pedir km, confirmar tareas hechas): p. ej. "¿has cambiado la arena? ¿cuándo?" cuando una rutina vence
-- [ ] Resumen diario por la mañana: agenda, mantenimiento que vence, tiempo
-- [ ] Papel por dispositivo: solo el iPhone del escritorio ("kiosco") escucha la wake word, duerme de noche y habla en voz alta; el resto son pantallas normales. Ya hay medio camino: la voz se activa por dispositivo con el botón del micro
-- [ ] Opcional: los ojos siguen tu cara con la cámara frontal
+- [x] Avisos en pantalla en vez de hablar solo (2026-11-18): rutina que toca ("¿Hecho? Cambiar la arena"), contador con lectura vieja ("Coche: ¿cuántos km?"), cita pasada sin marcar ("¿Lo tuviste?"). Al tocarlo, Claudio pregunta y apunta la respuesta. `server/nudges.ts`
+- [x] Resumen de la mañana como aviso (6:00–12:30): tiempo, lo de hoy y lo que no hay que olvidar, más la vista de hoy (2026-11-18)
+- [x] Papel por dispositivo (2026-11-18): el kiosco escucha «Claudio», habla y duerme de noche; el móvil de Javier o Ana tiene micro de pulsar para hablar y no duerme. Se elige en el menú del pie
+- [x] Los ojos te siguen con la cámara frontal, por movimiento (2026-11-18). `web/camera.js`
+- [ ] Probar en el iPhone: cámara + micro a la vez (iOS a veces corta un `getUserMedia` al abrir otro), avisos y anillo de las rutinas
+- [ ] Si el seguimiento por movimiento se queda corto: detección de caras (p. ej. MediaPipe en local)
 
 ## Fase 4 — Auto-mejora
 
@@ -103,6 +105,11 @@
 
 | Fecha | Decisión | Por qué |
 |---|---|---|
+| 2026-11-18 | Claudio no habla por su cuenta: lo proactivo (resumen, preguntas de rutinas, km, citas pasadas) sale como aviso en pantalla y se dice al tocarlo o pedirlo | Javier no quiere que hable si no hay nadie delante |
+| 2026-11-18 | Las citas también se marcan ("la tuve"); si pasan sin marcar, siguen en rojo 30 días | Para no olvidar reprogramar una cita a la que no se fue |
+| 2026-11-18 | Pie con solo micro, cámara y menú; teclado, gestión y perfil van en el menú | Despejar el pie y dejar a mano lo que se activa a menudo |
+| 2026-11-18 | Página de gestión propia (`admin.html`) sobre la misma API, sin login aparte | Crear y corregir a mano sin pasar por Claudio; misma protección que el resto (LAN o login del portal) |
+| 2026-11-18 | Seguimiento de la cámara por movimiento, sin librerías de caras | Funciona en Safari, pesa cero y basta para que los ojos miren hacia quien se mueve |
 | 2026-11-17 | LLM en la nube (Claude Haiku), sin modelo local en el iPhone | El iPhone 11 no tiene Apple Intelligence; un modelo de 1–3B se calienta y es mucho peor |
 | 2026-11-17 | Cliente web (PWA), no app nativa | Las apps con cuenta gratuita caducan a los 7 días; la PWA permite que Claude Code despliegue solo |
 | 2026-11-17 | Backend en el Mac mini al principio | Siempre encendido y es donde ya corre Claude Code; se puede mover a un VPS más adelante |

@@ -1,0 +1,103 @@
+/* Gestión: página normal que hace scroll (no la pantalla fija del kiosco). Mismos colores. */
+:root {
+  --bg: #1f1e1d;
+  --surface: #2a2826;
+  --surface-2: #322f2c;
+  --line: #3a3734;
+  --text: #f0ebe3;
+  --muted: #a39e96;
+  --accent: #d97757;
+  --accent-soft: #e8a48a;
+  --bad: #d9675a;
+  --ok: #8fbf7f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px);
+}
+main, .top, .tabs { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+
+.top { display: flex; align-items: center; gap: 12px; padding-top: 14px; }
+.top h1 { margin: 0; font-size: 20px; flex: 1; }
+.back { color: var(--accent); text-decoration: none; font-size: 16px; }
+
+.tabs { display: flex; gap: 6px; margin-top: 14px; position: sticky; top: 0; z-index: 2; background: var(--bg); padding-top: 8px; padding-bottom: 8px; }
+.tabs button {
+  flex: 1; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line);
+  background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #1f1410; }
+
+.card { background: var(--surface); border-radius: 16px; padding: 14px; margin: 12px 0; }
+.form h2, .card h2 { margin: 0 0 10px; font-size: 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.field small { font-size: 12px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row .field { min-width: 110px; }
+input, select, textarea {
+  font: inherit; font-size: 16px; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 11px; width: 100%; min-width: 0;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+textarea { resize: vertical; }
+input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+
+.seg { display: flex; gap: 4px; padding: 3px; background: var(--bg); border-radius: 12px; margin-bottom: 12px; }
+.seg label { flex: 1; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: block; text-align: center; padding: 8px 0; border-radius: 9px; color: var(--muted); cursor: pointer; }
+.seg input:checked + span { background: var(--accent); color: #1f1410; font-weight: 600; }
+
+/* Tarea o cita: cada una con sus campos */
+.form[data-kind="task"] .only-event, .form[data-kind="task"] .lbl-event { display: none; }
+.form[data-kind="event"] .only-task, .form[data-kind="event"] .lbl-task { display: none; }
+
+.actions { display: flex; gap: 8px; }
+button.primary, button.ghost, .item button, .entry button, .list-head button {
+  font: inherit; border-radius: 10px; padding: 9px 14px; cursor: pointer;
+}
+button.primary { background: var(--accent); color: #1f1410; border: 0; font-weight: 600; }
+button.ghost { background: none; color: var(--muted); border: 1px solid var(--line); }
+.msg { margin: 8px 0 0; min-height: 1.2em; font-size: 13px; color: var(--ok); }
+.msg.error { color: var(--bad); }
+.toggle { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; margin: 4px 2px 8px; }
+
+h3 { margin: 18px 2px 8px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-soft); }
+.item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px;
+}
+.item .body { flex: 1; min-width: 0; }
+.item .t { overflow-wrap: anywhere; }
+.item .m { font-size: 12.5px; color: var(--muted); }
+.item .m .bad { color: var(--bad); }
+.item.done { opacity: .5; }
+.item.done .t { text-decoration: line-through; }
+.item.editing { outline: 2px solid var(--accent); }
+.item button, .entry button, .list-head button {
+  background: none; border: 1px solid var(--line); color: var(--muted);
+  padding: 6px 9px; font-size: 13px;
+}
+.item button.ok { color: var(--ok); border-color: rgba(143, 191, 127, .5); }
+.item button.del, .entry button.del { color: var(--bad); border-color: rgba(217, 103, 90, .4); }
+.btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+.list-head { display: flex; align-items: center; gap: 8px; }
+.list-head h2 { flex: 1; margin: 0; }
+.entry { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+.entry:first-of-type { border-top: 0; }
+.entry label { flex: 1; display: flex; gap: 10px; align-items: center; cursor: pointer; }
+.entry .sec { font-size: 12px; color: var(--muted); }
+.entry.done label span:first-of-type { text-decoration: line-through; color: var(--muted); }
+.empty { color: var(--muted); text-align: center; padding: 18px 0; }
+
+/* Formularios plegados: en el móvil, primero se ve lo que hay */
+.add summary { cursor: pointer; font-weight: 600; color: var(--accent); list-style: none; }
+.add summary::-webkit-details-marker { display: none; }
+.add[open] summary { margin-bottom: 12px; }

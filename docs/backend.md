@@ -62,6 +62,11 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 - Nunca hecha (`last_done_at` vacío) y por tiempo → toca hoy.
 - `routine_done` apunta en `routine_log` y actualiza `last_done_*` (no retrocede si se apunta una vez anterior). Si se dice el valor del contador, también cuenta como lectura; si no, se usa el estimado.
 - Activos y contadores se crean solos la primera vez que se nombran (`asset` + `unit`).
+- Cada rutina trae `progress` (parte del ciclo pasada: 0 recién hecha, 1 toca) y `cycle` ("día 3 de 5"), para el anillo del panel.
+
+## Citas pasadas
+
+Un evento sin `done_at` sigue saliendo 30 días después de pasar (`PAST_EVENT_DAYS` en `server/items.ts`), en rojo y con aviso "¿Lo tuviste?". `complete_item` sirve para tareas y para citas.
 
 ## Gasto
 
@@ -76,10 +81,15 @@ Con listas, rutinas y `show` (2026-11-18, 6 órdenes de prueba): ~0,001 $ por me
 | Ruta | Qué hace |
 |---|---|
 | `GET /api/health` | `{ok, env, version, chat}`; `chat` = hay clave |
-| `GET /api/upcoming` | tareas abiertas (vencidas incluidas) y eventos que no han pasado |
+| `GET /api/upcoming` | tareas abiertas (vencidas incluidas) y eventos sin marcar (los pasados, hasta 30 días) |
 | `GET /api/view?spec={…}` | lo que enseña el panel; sin `spec`, "Próximo" (eventos, tareas y rutinas de los próximos 14 días) |
-| `POST /api/items/:id/done` | marca hecha (`{"done": false}` la reabre) |
-| `POST /api/routines/:id/done` | rutina hecha hoy |
+| `POST /api/items/:id/done` | tarea hecha o cita tenida (`{"done": false}` la reabre) |
+| `POST /api/routines/:id/done` | rutina hecha hoy (o `{done_at, value}`) |
+| `GET /api/nudges` · `POST /api/nudges/seen` | avisos pendientes · `{key}` lo quita por hoy |
+| `GET /api/items?done=1` · `POST /api/items` · `POST /api/items/:id` · `DELETE /api/items/:id` | gestión de citas y tareas (crear, cambiar solo lo que se envía, borrar) |
+| `GET /api/lists` · `POST /api/lists/entries` · `POST /api/lists/clear` | listas con sus entradas · `{list, entries}` · `{list, whole?}` |
+| `POST /api/entries/:id` · `DELETE /api/entries/:id` | cambiar o borrar una entrada |
+| `GET /api/routines` · `POST /api/routines` · `POST /api/routines/:id` · `DELETE /api/routines/:id` | gestión de rutinas |
 | `POST /api/entries/:id/done` | tacha una entrada de lista (`{"done": false}` la destacha) |
 | `GET /api/weather` | tiempo ahora, hoy y mañana (Open-Meteo, caché 15 min) |
 | `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text, who?}` → `{reply, changed, view}` |
