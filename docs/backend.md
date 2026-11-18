@@ -48,6 +48,12 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 - Una sola conversación para todas las pantallas; los turnos se atienden de uno en uno. Se guardan solo el texto del usuario y la respuesta final (`chat_messages`); el contexto son los últimos 20.
 - La fecha y hora actual van en un segundo bloque del `system`, después del prompt fijo (que lleva `cache_control`).
 
+## Gasto
+
+Cada llamada al modelo se apunta en `api_usage` (tokens y coste en USD con los precios de Haiku 5.5: 0,10 $/M entrada, 0,50 $/M salida, caché a 0,1×) y el log del servicio dice `chat: <ms>, $<coste>` por turno.
+
+Medido el 2026-11-18 con 8 órdenes de prueba (crear, mover, completar, borrar, preguntar): **0,0027 $ en total**, de 0,00007 $ a 0,0009 $ por mensaje (media 0,00034 $). El prompt fijo y las herramientas (~1.570 tokens) salen de la caché. 30 mensajes al día ≈ 0,30 $/mes. Whisper y la voz son locales: coste cero.
+
 ## API
 
 | Ruta | Qué hace |
@@ -56,6 +62,7 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 | `GET /api/upcoming` | tareas abiertas (vencidas incluidas) y eventos que no han pasado |
 | `POST /api/items/:id/done` | marca hecha (`{"done": false}` la reabre) |
 | `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text}` → `{reply, changed}` |
+| `GET /api/usage` | gasto de la API de Anthropic: hoy, este mes y total (llamadas, tokens, USD) |
 | `GET /api/stream` | SSE: `items` (cambió la agenda), `chat` (mensaje nuevo), `ping` cada 25 s |
 
 Los POST exigen `Content-Type: application/json` (protección CSRF).

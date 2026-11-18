@@ -8,6 +8,8 @@ import { publish } from './bus.ts';
 import { completeItem, createItem, deleteItem, InputError, listItems, updateItem } from './items.ts';
 
 const MODEL = 'claude-haiku-5-5';
+// Precios de Haiku 5.5 en USD por millón de tokens (prompts < 100K). Caché: lectura 0,1×, escritura 1,25×.
+const PRICE = { input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.125 };
 const HISTORY = 20;         // mensajes de contexto (10 idas y vueltas)
 const MAX_STEPS = 8;        // llamadas al modelo por turno, como mucho
 
@@ -119,6 +121,27 @@ function runTool(name: string, input: unknown): string {
   }
 }
 
+function recordUsage(u: Anthropic.Usage): number {
+  const cacheRead = u.cache_read_input_tokens ?? 0;
+  const cacheWrite = u.cache_creation_input_tokens ?? 0;
+  const cost = (u.input_tokens * PRICE.input + u.output_tokens * PRICE.output
+    + cacheRead * PRICE.cacheRead + cacheWrite * PRICE.cacheWrite) / 1e6;
+  db.prepare('INSERT INTO api_usage (model, input_tokens, output_tokens, cache_read, cache_write, cost_usd) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(MODEL, u.input_tokens, u.output_tokens, cacheRead, cacheWrite, cost);
+  return cost;
+}
+
+/** Gasto acumulado: hoy, este mes y desde siempre (USD). */
+export function usageSummary() {
+  const q = (where: string) => db.prepare(`SELECT COUNT(*) AS calls, COALESCE(SUM(input_tokens), 0) AS input,
+    COALESCE(SUM(output_tokens), 0) AS output, COALESCE(SUM(cost_usd), 0) AS cost FROM api_usage ${where}`).get();
+  return {
+    today: q("WHERE created_at >= strftime('%Y-%m-%dT00:00:00', 'now')"),
+    month: q("WHERE created_at >= strftime('%Y-%m-01T00:00:00', 'now')"),
+    total: q(''),
+  };
+}
+
 type ChatRow = { id: number; role: 'user' | 'assistant'; text: string; created_at: string };
 
 export function recentMessages(limit = HISTORY): ChatRow[] {
@@ -161,6 +184,8 @@ async function turn(text: string): Promise<{ reply: string; changed: boolean }> 
 
   let changed = false;
   let reply = '';
+  let turnCost = 0;
+  const started = Date.now();
   for (let step = 0; step < MAX_STEPS; step++) {
     const res = await c.messages.create({
       model: MODEL,
@@ -171,6 +196,7 @@ async function turn(text: string): Promise<{ reply: string; changed: boolean }> 
       messages,
     });
 
+    turnCost += recordUsage(res.usage);
     if (res.stop_reason === 'refusal') { reply = 'Eso no puedo hacerlo.'; break; }
     const textOut = res.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('\n').trim();
     if (res.stop_reason !== 'tool_use') {
@@ -195,5 +221,6 @@ async function turn(text: string): Promise<{ reply: string; changed: boolean }> 
   }
 
   save('assistant', reply);
+  console.log(`chat: ${Date.now() - started} ms, $${turnCost.toFixed(5)}`);
   return { reply, changed };
 }

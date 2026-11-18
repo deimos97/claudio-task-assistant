@@ -29,6 +29,18 @@ micro del iPhone ─► web/voice.js: remuestreo a 16 kHz + VAD por energía ─
 
 Dev y prod usan el mismo whisper. Ajustes en `server/voice.ts`; los del VAD del navegador, arriba de `web/voice.js`.
 
+## Voces disponibles (2026-11-18)
+
+Muestras en `web/_voces/` (fuera de git; en dev: `/_voces/`). Todas locales y gratis:
+
+| Motor | Voces probadas | Tiempo por frase (~6 s de audio) | Instalación |
+|---|---|---|---|
+| macOS `say` (la actual) | Reed, Mónica, Paulina, Eddy, Rocko; Samantha, Daniel | instantáneo | ya está |
+| Piper (neuronal) | es: davefx, sharvard, carlfm; en: ryan | 0,1–0,4 s | `~/.claudio/tts-venv` (Python 3.12) + `~/.claudio/models/tts/*.onnx` |
+| Kokoro-82M (neuronal) | es: alex, santa, dora; en: michael, puck, heart, george | 1,3–2 s | mismo venv + `kokoro-v1.0.onnx` (325 MB) |
+
+Pendiente: que Javier elija voz. Opciones de pago si ninguna convence: ElevenLabs, OpenAI TTS, Google Chirp HD, Azure Neural.
+
 ## Medidas (M2 Pro, 2026-11-18)
 
 - whisper con idioma fijo `es`: **~0,85 s** por frase de 2–3 s; con `auto`, ~1,7 s. Con `es` transcribe bien el inglés, así que se deja fijo.

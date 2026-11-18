@@ -33,7 +33,9 @@
 - [x] Reconocimiento de voz en el Mac mini: whisper.cpp (`large-v3-turbo` q5 + VAD Silero) como LaunchAgent en 127.0.0.1:3120; idioma fijado a "es" (entiende igual el inglés) → ~0,85 s por frase (2026-11-18)
 - [x] Claudio contesta en voz alta: `say` de macOS (voz Reed, es/en según el texto) → AAC; mientras habla no escucha. Si su respuesta es una pregunta, vuelve a escuchar sin wake word (2026-11-18)
 - [x] Botón de micro en la cabecera (activa la voz en ese dispositivo y lo recuerda); con la voz activada, tocar la cara = "te escucho" (2026-11-18)
-- [ ] Probar la voz en el iPhone real: permiso del micro en la PWA, volumen del altavoz con el micro abierto, falsos positivos con la tele, recarga automática sin toque
+- [x] Voz probada en el iPhone real: funciona (2026-11-18). Javier sigue probando por si hay fallos
+- [ ] Cambiar la voz: a Javier no le gusta Reed. Muestras de `say`, Piper y Kokoro en `/_voces/` de dev; falta que elija
+- [x] Registro del gasto de la API (`api_usage`, `GET /api/usage`): ~0,00034 $ por mensaje de media (2026-11-18)
 - [ ] Notas y listas (compra, ideas…) que Claudio mantiene
 - [ ] Tiempo (clima) junto al reloj (Open-Meteo, sin clave)
 - [x] Sincronización en vivo entre pantallas (SSE, `/api/stream`): agenda y chat aparecen al momento en todas (2026-11-18)

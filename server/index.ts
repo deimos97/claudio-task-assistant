@@ -12,7 +12,7 @@ import { DB_FILE, ENV, PORT, ROOT } from './config.ts';
 import './db.ts';
 import { subscribe } from './bus.ts';
 import { completeItem, InputError, upcoming } from './items.ts';
-import { chat, chatConfigured, recentMessages } from './chat.ts';
+import { chat, chatConfigured, recentMessages, usageSummary } from './chat.ts';
 import { speak, transcribe, VoiceError } from './voice.ts';
 
 // Versión = commit actual + fecha del último cambio en web/. La PWA la consulta y
@@ -67,6 +67,8 @@ app.post('/api/items/:id/done', async (c) => {
     throw e;
   }
 });
+
+app.get('/api/usage', (c) => c.json(usageSummary()));
 
 app.get('/api/chat', (c) => c.json({ messages: recentMessages(30) }));
 
@@ -128,7 +130,11 @@ app.get('/api/stream', (c) =>
 );
 
 // serveStatic espera una ruta relativa al directorio de trabajo.
-app.use('/*', serveStatic({ root: relative(process.cwd(), join(ROOT, 'web')) || '.' }));
+app.use('/*', serveStatic({
+  root: relative(process.cwd(), join(ROOT, 'web')) || '.',
+  // Hono no conoce .m4a; Safari necesita el tipo para reproducirlo
+  onFound: (path, c) => { if (path.endsWith('.m4a')) c.header('Content-Type', 'audio/mp4'); },
+}));
 
 serve({ fetch: app.fetch, port: PORT, hostname: '0.0.0.0' }, (info) => {
   console.log(`Claudio [${ENV}] ${version()} escuchando en http://0.0.0.0:${info.port} · BD ${DB_FILE}`);
