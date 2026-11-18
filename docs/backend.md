@@ -80,7 +80,7 @@ Con listas, rutinas y `show` (2026-11-18, 6 órdenes de prueba): ~0,001 $ por me
 
 | Ruta | Qué hace |
 |---|---|
-| `GET /api/health` | `{ok, env, version, chat}`; `chat` = hay clave |
+| `GET /api/health` | `{ok, env, version, chat, deploy}`; `chat` = hay clave; `deploy` = último despliegue automático (`{ok, commit, at}`) |
 | `GET /api/upcoming` | tareas abiertas (vencidas incluidas) y eventos sin marcar (los pasados, hasta 30 días) |
 | `GET /api/view?spec={…}` | lo que enseña el panel; sin `spec`, "Próximo" (eventos, tareas y rutinas de los próximos 14 días) |
 | `POST /api/items/:id/done` | tarea hecha o cita tenida (`{"done": false}` la reabre) |
@@ -91,7 +91,7 @@ Con listas, rutinas y `show` (2026-11-18, 6 órdenes de prueba): ~0,001 $ por me
 | `POST /api/entries/:id` · `DELETE /api/entries/:id` | cambiar o borrar una entrada |
 | `GET /api/routines` · `POST /api/routines` · `POST /api/routines/:id` · `DELETE /api/routines/:id` | gestión de rutinas |
 | `POST /api/entries/:id/done` | tacha una entrada de lista (`{"done": false}` la destacha) |
-| `GET /api/weather` | tiempo ahora, hoy y mañana (Open-Meteo, caché 15 min) |
+| `GET /api/weather` | tiempo ahora, hoy y mañana en Barajas (Open-Meteo, caché 15 min; `CLAUDIO_LAT`/`LON`/`PLACE` para cambiarlo) |
 | `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text, who?}` → `{reply, changed, view}` |
 | `GET /api/usage` | gasto de la API de Anthropic: hoy, este mes y total (llamadas, tokens, USD) |
 | `GET /api/stream` | SSE: `items` (cambió algo), `chat` (mensaje nuevo), `show` (Claudio enseña una vista), `ping` cada 25 s |

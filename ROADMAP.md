@@ -41,7 +41,7 @@
 - [x] Listas que Claudio mantiene (compra, ideas, notas…): la de la compra va por secciones del súper; no duplica lo pendiente; lo comprado se tacha (2026-11-18)
 - [x] Categorías en todo (eventos, tareas, listas, rutinas): Claudio pone las obvias y dice cuál ha puesto (2026-11-18)
 - [x] Tiempo (Open-Meteo, sin clave) en el pie junto a la fecha ("Miércoles - 18-11-26") y en la agenda de Claudio. Lugar por defecto: Madrid (`CLAUDIO_LAT`/`CLAUDIO_LON`/`CLAUDIO_PLACE`) (2026-11-18)
-- [ ] Confirmar la ubicación del tiempo (ahora Madrid)
+- [x] Tiempo de Barajas (Madrid) por defecto (2026-11-18)
 - [x] Interfaz: fuera la barra de arriba; tiempo, fecha, punto de conexión, micro y teclado en un pie de una línea; ojos al 36 % en reposo (2026-11-18)
 - [x] Panel dinámico: Claudio "te enseña" lo que pides con la herramienta `show` (una lista, una categoría, lo de N días…): los ojos encogen al 13 %, el panel sube como una tarjeta y lo miran; vuelve a "Próximo" tras 60 s sin tocarlo, al tocar los ojos o la ×, o con una respuesta que no enseña nada (2026-11-18)
 - [x] Pie y altura comprobados en el iPhone real: la PWA solo enseña `100svh` (848 de 896) (2026-11-18)
@@ -72,14 +72,14 @@
 
 ## Fase 3 — Proactividad (y mejoras de voz)
 
-- [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase
+- [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase. Hoy no hace falta: detecta bien. Mirarlo si hay falsos «Claudio» con la tele, si tarda en reaccionar o si whisper carga el Mac
 - [x] Avisos en pantalla en vez de hablar solo (2026-11-18): rutina que toca ("¿Hecho? Cambiar la arena"), contador con lectura vieja ("Coche: ¿cuántos km?"), cita pasada sin marcar ("¿Lo tuviste?"). Al tocarlo, Claudio pregunta y apunta la respuesta. `server/nudges.ts`
 - [x] Resumen de la mañana como aviso (6:00–12:30): tiempo, lo de hoy y lo que no hay que olvidar, más la vista de hoy (2026-11-18)
 - [x] Papel por dispositivo (2026-11-18): el kiosco escucha «Claudio», habla y duerme de noche; el móvil de Javier o Ana tiene micro de pulsar para hablar y no duerme. Se elige en el menú del pie
 - [x] Los ojos te siguen con la cámara frontal, por movimiento (2026-11-18). `web/camera.js`
+- [x] Detector de caras local (MediaPipe BlazeFace en el iPhone, sin CDN) con el movimiento de respaldo, y recuadro de depuración con lo que ve (2026-11-18)
 - [ ] Probar en el iPhone: cámara + micro a la vez (iOS a veces corta un `getUserMedia` al abrir otro), avisos, anillo de las rutinas, menú y perfil Javier/Ana en el móvil (pulsar para hablar)
 - [x] Tras un cambio, el panel enseña solo lo cambiado, resaltado, 12 s (2026-11-18)
-- [ ] Si el seguimiento por movimiento se queda corto: detección de caras (p. ej. MediaPipe en local)
 
 ## Fase 4 — Auto-mejora
 
@@ -95,7 +95,7 @@
 ## Deuda técnica
 
 - [x] Despliegue automático al mergear a `main`: el Mac mini mira `origin/main` cada minuto y ejecuta `deploy.sh` (2026-11-18)
-- [ ] Si un despliegue automático falla, que Claudio lo diga (ahora solo queda en `~/Library/Logs/claudio-deploy.log`)
+- [x] Si un despliegue automático falla, Claudio lo avisa: punto naranja y aviso en pantalla (`~/.claudio/deploy-status.json`) (2026-11-18)
 - [x] Cuando se le da hora a una tarea ("la limpieza dental el jueves a las 17:00"), Claudio la dejaba como tarea con hora en vez de pasarla a evento: regla en el prompt ("si te dan hora, es un evento") (2026-11-18)
 - [ ] El chat de la API no tiene login en la red de casa: cualquiera en la Wi-Fi puede usarlo (y gastar API). Bajo riesgo hoy; revisar si se abre más
 - [ ] Sesión más larga fuera de casa: si molesta volver a entrar cada 12 h, "recordarme" en el home-portal (decidido en vez de emparejar dispositivos)
@@ -106,6 +106,8 @@
 
 | Fecha | Decisión | Por qué |
 |---|---|---|
+| 2026-11-18 | Detector de caras con MediaPipe en el iPhone (WebAssembly), servido desde el Mac mini | El iPhone va sobrado, no necesita red ni CDN y no manda imágenes a ningún sitio |
+| 2026-11-18 | Detector propio de «Claudio»: no por ahora | La transcripción con whisper ya lo detecta bien; se revisa si aparecen falsos positivos o el Mac va cargado |
 | 2026-11-18 | Tras cada cambio, la pantalla enseña sola dónde ha quedado (resaltado) y se quita a los 12 s | Javier quiere ver lo que se ha añadido sin pedirlo |
 | 2026-11-18 | Claudio no habla por su cuenta: lo proactivo (resumen, preguntas de rutinas, km, citas pasadas) sale como aviso en pantalla y se dice al tocarlo o pedirlo | Javier no quiere que hable si no hay nadie delante |
 | 2026-11-18 | Las citas también se marcan ("la tuve"); si pasan sin marcar, siguen en rojo 30 días | Para no olvidar reprogramar una cita a la que no se fue |

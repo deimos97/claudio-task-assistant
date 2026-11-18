@@ -1,6 +1,6 @@
 import { Eyes } from './eyes.js';
 import { Ears, wakeWord } from './voice.js';
-import { Watcher } from './camera.js';
+import { drawDebug, Watcher } from './camera.js';
 
 const $ = (id) => document.getElementById(id);
 const eyes = new Eyes($('eyes'));
@@ -143,6 +143,7 @@ function showMetrics() {
 }
 
 $('debug').addEventListener('click', (ev) => {
+  if (ev.target?.dataset?.action === 'cam') { toggleCamDebug(); return; }
   const s = ev.target?.dataset?.state;
   if (!s) return;
   clearTimeout(happyTimer);
@@ -754,7 +755,7 @@ applyRole();
 // Claudio no habla solo (podría no haber nadie). Lo que quiere decir o preguntar
 // (resumen de la mañana, "¿has cambiado la arena?", "¿cuántos km lleva el coche?") sale
 // como botón bajo los ojos; al tocarlo, lo pregunta (en voz alta si el micro está activo).
-const NUDGE_ICON = { briefing: '☀️', routine: '🔁', reading: '🔢', event: '📅' };
+const NUDGE_ICON = { briefing: '☀️', routine: '🔁', reading: '🔢', event: '📅', deploy: '⚠️' };
 let nudgeKeys = '';
 async function loadNudges() {
   try {
@@ -845,6 +846,23 @@ $('cam').addEventListener('click', () => {
 if (camPref()) startCam();
 window.claudio.cam = () => watcher;
 
+// Recuadro de depuración (menú → estados de los ojos → "cámara"): lo que ve y lo que sigue.
+// Verde: caras con su confianza; punto coral claro: movimiento; cruz: adónde miran los ojos.
+let camDebugRaf = null;
+function toggleCamDebug() {
+  const box = $('cam-debug');
+  box.hidden = !box.hidden;
+  cancelAnimationFrame(camDebugRaf);
+  if (box.hidden) return;
+  if (!watcher?.running) startCam(); // para verla no hace falta dejarla encendida después
+  const canvas = box.querySelector('canvas');
+  const loop = () => {
+    $('cam-info').textContent = drawDebug(canvas, watcher);
+    camDebugRaf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
 // ---------- Avisos en vivo (SSE) ----------
 function connectStream() {
   const es = new EventSource('api/stream');
@@ -868,8 +886,9 @@ async function checkHealth() {
   try {
     const r = await fetch('api/health', { cache: 'no-store' });
     const h = await r.json();
-    dot.className = 'status ok';
-    dot.title = `${h.env} · ${h.version}`;
+    const failed = h.deploy && !h.deploy.ok;
+    dot.className = `status ${failed ? 'warn' : 'ok'}`;
+    dot.title = `${h.env} · ${h.version}${failed ? ` · falló el despliegue de ${h.deploy.commit}` : ''}`;
     if (knownVersion && h.version !== knownVersion && !waiting && !$('chat-input').value && (voiceMode === 'off' || voiceMode === 'idle')) location.reload();
     knownVersion = h.version;
     $('chat-input').placeholder = h.chat ? 'Escribe a Claudio…' : 'Falta la clave de Anthropic';

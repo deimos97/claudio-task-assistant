@@ -16,6 +16,8 @@ export const BACKUP_DIR = join(DATA_DIR, 'backups');
 export const BACKUPS_KEPT = 14;
 // Clave de Anthropic: la variable de entorno o este fichero (chmod 600), común a dev y prod.
 export const ANTHROPIC_KEY_FILE = join(CLAUDIO_HOME, 'anthropic-key');
+// Resultado del último despliegue automático (lo escribe scripts/auto-deploy.sh).
+export const DEPLOY_STATUS_FILE = join(CLAUDIO_HOME, 'deploy-status.json');
 
 // Las dos personas que usan a Claudio. owner NULL en la BD = de los dos.
 export const PEOPLE = {

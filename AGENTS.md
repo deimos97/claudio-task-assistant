@@ -43,7 +43,8 @@ server/bus.ts          avisos en vivo (SSE) a todas las pantallas
 server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, `say` Jorge (es) y Kokoro Heart (en, 127.0.0.1:3121)
 web/index.html         página única: ojos y avisos arriba, panel abajo, pie (tiempo, fecha, conexión, micro, cámara, menú)
 web/admin.html/.js/.css  gestión a mano: agenda, listas y rutinas
-web/camera.js          ojos que te siguen: cámara frontal a baja resolución, sigue el movimiento
+web/camera.js          ojos que te siguen: detector de caras local (MediaPipe BlazeFace) con el movimiento de respaldo; recuadro de depuración
+web/models/            modelo de caras (blaze_face_short_range.tflite); el motor WebAssembly se sirve desde node_modules en /vendor/mediapipe/
 web/eyes.js            ojos en pixel art: forma en "bloques" (escena de 40×22) pero posición continua a resolución real → movimiento suave. Estados: idle, listening, thinking, talking, happy, sleepy, sleeping
 web/app.js             fecha y tiempo, modo noche, panel dinámico, avisos, menú y perfil, chat por teclado, voz, cámara, avisos en vivo, salud + auto-recarga, wake lock
 web/voice.js           oídos: micro → 16 kHz → VAD → frases WAV; pitido; reproducir la voz; detectar "Claudio"

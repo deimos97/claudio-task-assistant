@@ -21,7 +21,8 @@ Lee esto si vas a: cambiar la distribución de la pantalla, lo que enseña el pa
 - Pie: tiempo (lluvia solo si ≥ 40 %; máximas/mínimas en el `title`), fecha corta sin año (la larga en el `title`), punto de conexión, micro, cámara y menú. El botón del menú lleva la inicial del perfil (K kiosco, J Javier, A Ana).
 - Menú (sube desde el pie): teclado (abre el chat justo encima del pie; en escritorio no sale porque el chat siempre se ve), **Gestionar** (`admin.html`), perfil de este dispositivo y estados de los ojos con medidas de pantalla (lo mismo que la pulsación larga).
 - Perfil (`localStorage` `claudio.who`): **Kiosco** escucha «Claudio» siempre que el micro esté activo, habla y duerme de 23:00 a 7:30. **Javier / Ana**: el micro es pulsar para hablar (pitido, una orden, se apaga) y no duerme.
-- Cámara (`web/camera.js`): frontal a 48×36 en gris, ~9 fotogramas/s; el centro de lo que cambia entre fotogramas es hacia donde miran los ojos (en espejo). Nada sale del iPhone. Se recuerda encendida (`claudio.cam`) y se reabre al volver a la app.
+- Cámara (`web/camera.js`): frontal a 320×240, ~9 fotogramas/s. **Detector de caras local**: MediaPipe BlazeFace (modelo `web/models/blaze_face_short_range.tflite`, 230 KB; motor WebAssembly de 14,6 MB servido desde `node_modules/@mediapipe/tasks-vision` en `/vendor/mediapipe/`, sin CDN). Corre en el iPhone, en la CPU. Sigue la cara más grande, apuntando un poco por encima del centro (los ojos). Si no ve caras durante 1,5 s, o el detector no carga, sigue el movimiento (dónde cambia la imagen a 48×36 en gris). Todo en espejo. Nada sale del iPhone. Se recuerda encendida (`claudio.cam`) y se reabre al volver a la app.
+- Ver lo que ve: menú → "Estados de los ojos y medidas" → **cámara**. Recuadro arriba a la derecha: la imagen en espejo, caras en verde con su confianza, punto coral claro = movimiento, cruz = adónde miran los ojos; debajo, modo, nº de caras y ms por fotograma. Medido en el Mac (2026-11-18): carga en 0,16 s y 3 ms por fotograma (12 ms con la página ocupada).
 
 ## Avisos (Claudio no habla solo)
 
@@ -62,6 +63,8 @@ Delante del título: `!` importante (coral), `‼` crítico (rojo); lo de priori
 Debajo del título, en gris: el dueño si no es de los dos (y no es la persona de la vista), la categoría (solo en "Próximo"; las vistas ya agrupan por ella) y el punto del ciclo de la rutina ("día 3 de 5", o "≈ 12.300 / 15.000 km"). La fila se repinta cada minuto para que "en 25 min" no se quede viejo.
 
 ## Monkey noises
+
+- **En el navegador del panel de Claude Code la cámara está bloqueada**: el detector se probó con un vídeo hecho desde un canvas (`captureStream`). En el iPhone falta probarlo con cámara real.
 
 - **Hueco vacío bajo el pie en la PWA del iPhone** (2026-11-18): con `height: 100%` la altura calculada no siempre coincide con la pantalla, sobre todo tras abrir y cerrar el teclado, que deja la página desplazada. Arreglo: `body { position: fixed; inset: 0 }` y `scrollTo(0, 0)` al cerrar el teclado. Seguía sin llenar en el iPhone: ahora la altura es `100lvh` (la pantalla entera; en la PWA no hay barras). Para depurar: pulsación larga sobre la cara → medidas de la pantalla (`inner`, `visual`, `lvh`, `svh`, `body`, `pieAbajo`, zonas seguras, `standalone`).
 - **Medido en el iPhone (2026-11-18):** el layout ya mide 896 (pantalla entera), pero sin teclado visible iOS seguía con `inner` 483 y `scrollY` 365: la página quedaba desplazada tras cerrar el teclado. Ahora se vuelve arriba cada vez que cambia la ventana visible (`visualViewport` resize) o hay scroll sin un campo enfocado. Además, el pie respeta solo 20 px de los 34 px de la barra de inicio.

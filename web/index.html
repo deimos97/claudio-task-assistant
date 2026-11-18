@@ -87,7 +87,13 @@
     <button data-state="happy">happy</button>
     <button data-state="sleepy">sleepy</button>
     <button data-state="sleeping">sleeping</button>
+    <button data-action="cam">cámara</button>
   </nav>
+
+  <figure id="cam-debug" class="cam-debug" hidden>
+    <canvas width="240" height="180" aria-label="Lo que ve la cámara"></canvas>
+    <figcaption id="cam-info"></figcaption>
+  </figure>
 
   <script type="module" src="app.js"></script>
 </body>

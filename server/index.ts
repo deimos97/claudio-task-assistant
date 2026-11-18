@@ -16,7 +16,7 @@ import { chat, chatConfigured, recentMessages, usageSummary } from './chat.ts';
 import { speak, transcribe, VoiceError } from './voice.ts';
 import { addToList, allLists, checkEntries, clearList, entries, removeEntries, updateEntry } from './lists.ts';
 import { createRoutine, deleteRoutine, doneRoutine, listRoutines, updateRoutine } from './routines.ts';
-import { nudges, seeNudge } from './nudges.ts';
+import { deployStatus, nudges, seeNudge } from './nudges.ts';
 import { buildView, checkSpec } from './view.ts';
 import { weather } from './weather.ts';
 
@@ -59,7 +59,10 @@ app.use('/api/*', async (c, next) => {
   await next();
 });
 
-app.get('/api/health', (c) => c.json({ ok: true, env: ENV, version: version(), chat: chatConfigured() }));
+app.get('/api/health', (c) => {
+  const d = deployStatus();
+  return c.json({ ok: true, env: ENV, version: version(), chat: chatConfigured(), deploy: d ? { ok: d.ok, commit: d.commit, at: d.at } : null });
+});
 
 app.get('/api/upcoming', (c) => c.json({ items: upcoming() }));
 
@@ -195,6 +198,12 @@ app.get('/api/stream', (c) =>
     off();
   }),
 );
+
+// Detector de caras (MediaPipe) para web/camera.js: se sirve desde node_modules, sin CDN.
+app.use('/vendor/mediapipe/*', serveStatic({
+  root: relative(process.cwd(), join(ROOT, 'node_modules/@mediapipe/tasks-vision')) || '.',
+  rewriteRequestPath: (p) => p.replace(/^\/vendor\/mediapipe/, ''),
+}));
 
 // serveStatic espera una ruta relativa al directorio de trabajo.
 app.use('/*', serveStatic({

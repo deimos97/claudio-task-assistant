@@ -6,7 +6,7 @@ import { db } from './db.ts';
 import { ANTHROPIC_KEY_FILE, localNow, PEOPLE, type Who } from './config.ts';
 import { publish } from './bus.ts';
 import { completeItem, createItem, deleteItem, InputError, isPastEvent, listItems, updateItem, upcoming } from './items.ts';
-import { nudges, seeNudge } from './nudges.ts';
+import { deployStatus, nudges, seeNudge } from './nudges.ts';
 import { addToList, allLists, checkEntries, clearList, entries, removeEntries, updateEntry } from './lists.ts';
 import { assetsSummary, createRoutine, deleteRoutine, doneRoutine, listRoutines, logReading, routineLog, updateRoutine } from './routines.ts';
 import { buildView, checkSpec, PRIORITY_LABEL, type ViewSpec } from './view.ts';
@@ -419,6 +419,8 @@ async function agendaText(): Promise<string> {
   if (cats.length) out.push(`Categorías en uso: ${cats.join(', ')}.`);
 
   const pending = nudges();
+  const dep = deployStatus();
+  if (dep && !dep.ok) out.push(`Último despliegue a producción: FALLÓ (${dep.commit}, ${dep.at}). Producción puede seguir con la versión anterior o a medias; lo arregla Javier (o Claude Code) mirando ~/Library/Logs/claudio-deploy.log. Final de la salida:\n${dep.output}`);
   if (pending.length) out.push(`Avisos pendientes en pantalla (aún sin preguntar):\n${pending.map((n) => `- ${n.label}`).join('\n')}`);
 
   out.push(weatherText(await weather()));

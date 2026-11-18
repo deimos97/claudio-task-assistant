@@ -2,15 +2,16 @@
 // bajo los ojos ("Resumen de hoy", "¿Hecho? Cambiar la arena") y, al tocarlos (o al pedírselo
 // por voz), Claudio lo pregunta. Así nunca habla si no hay nadie delante.
 // Un aviso tocado o descartado no vuelve a salir ese día.
+import { readFileSync } from 'node:fs';
 import { db } from './db.ts';
-import { localNow } from './config.ts';
+import { DEPLOY_STATUS_FILE, localNow } from './config.ts';
 import { publish } from './bus.ts';
 import { InputError, isPastEvent, upcoming } from './items.ts';
 import { assetsSummary, listRoutines } from './routines.ts';
 
 export type Nudge = {
   key: string;
-  kind: 'briefing' | 'routine' | 'reading' | 'event';
+  kind: 'briefing' | 'routine' | 'reading' | 'event' | 'deploy';
   label: string;   // lo que se ve en el botón
   ask: string;     // lo que se le manda a Claudio al tocarlo
 };
@@ -28,12 +29,22 @@ function seenToday(): Set<string> {
   return new Set(rows.map((r) => r.key));
 }
 
+export type DeployStatus = { ok: boolean; commit: string; at: string; output: string };
+/** Último despliegue automático a producción, o null si nunca ha escrito nada. */
+export function deployStatus(): DeployStatus | null {
+  try { return JSON.parse(readFileSync(DEPLOY_STATUS_FILE, 'utf8')) as DeployStatus; } catch { return null; }
+}
+
 /** Avisos pendientes de hoy, del más útil al menos. */
 export function nudges(): Nudge[] {
   const now = localNow();
   const time = now.stamp.slice(11);
   const out: Nudge[] = [];
 
+  const dep = deployStatus();
+  if (dep && !dep.ok) {
+    out.push({ key: 'deploy', kind: 'deploy', label: `Falló el despliegue (${dep.commit})`, ask: 'Cuéntame qué ha fallado en el último despliegue.' });
+  }
   if (time >= BRIEFING_FROM && time <= BRIEFING_TO) {
     out.push({ key: 'briefing', kind: 'briefing', label: 'Resumen de hoy', ask: 'Dame el resumen de hoy.' });
   }
@@ -61,7 +72,7 @@ export function nudges(): Nudge[] {
 
 /** Tocado o descartado: no vuelve a salir hoy. */
 export function seeNudge(key: unknown): void {
-  if (typeof key !== 'string' || !/^(briefing|(routine|reading|event):\d+)$/.test(key)) throw new InputError('aviso desconocido');
+  if (typeof key !== 'string' || !/^(briefing|deploy|(routine|reading|event):\d+)$/.test(key)) throw new InputError('aviso desconocido');
   db.prepare('INSERT OR IGNORE INTO nudges_seen (key, day) VALUES (?, ?)').run(key, localNow().date);
   // Limpieza: lo de hace más de una semana ya no sirve
   db.prepare("DELETE FROM nudges_seen WHERE day < date(?, '-7 day')").run(localNow().date);

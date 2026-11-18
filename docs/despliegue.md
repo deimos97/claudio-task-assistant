@@ -13,6 +13,8 @@ Lee esto si vas a: desplegar, cambiar cómo se despliega o investigar por qué p
 
 Log: `~/Library/Logs/claudio-deploy.log` (solo escribe cuando despliega o falla).
 
+Resultado del último despliegue: `~/.claudio/deploy-status.json` (`{ok, commit, at, output}` con el final de la salida). Lo leen dev y prod: si `ok` es `false`, el punto de conexión del pie se pone naranja, sale el aviso "⚠️ Falló el despliegue (commit)" y Claudio, al tocarlo, cuenta el final del error. Desaparece con el siguiente despliegue bueno.
+
 ## Comandos
 
 ```bash
