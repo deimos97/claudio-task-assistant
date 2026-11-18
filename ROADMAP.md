@@ -20,6 +20,12 @@
 ## Fase 1 — Hablar con Claudio (texto) + eventos
 
 - [ ] Chat de texto con Haiku y herramientas
+- [ ] Entrada por teclado: discreta en móvil (icono pequeño, como respaldo de la voz), visible en escritorio
+- [ ] Base de datos (SQLite) + copias de seguridad automáticas desde el primer día
+- [ ] Notas y listas (compra, ideas…) que Claudio mantiene
+- [ ] Tiempo (clima) junto al reloj (Open-Meteo, sin clave)
+- [ ] Varias pantallas: diseño adaptable (escritorio: ojos + lista + chat lado a lado) y sincronización en vivo entre dispositivos (SSE): lo que añades en el Mac aparece al momento en el iPhone
+- [ ] Acceso fuera de casa vía Tailscale y emparejamiento sencillo de dispositivos (el servidor no queda abierto a la red)
 - [ ] Eventos propios de Claudio y lista "Próximo" bajo los ojos
 - [ ] Sincronización con Google Calendar (calendario dedicado "Claudio")
 
@@ -35,6 +41,8 @@
 - [ ] VAD (fin de frase) + STT con whisper.cpp en el Mac mini (es/en)
 - [ ] TTS (voz de Claudio) e ignorar la wake word mientras habla él mismo
 - [ ] Check-ins proactivos (pedir km, confirmar tareas hechas)
+- [ ] Resumen diario por la mañana: agenda, mantenimiento que vence, tiempo
+- [ ] Papel por dispositivo: solo el iPhone del escritorio ("kiosco") escucha la wake word, duerme de noche y habla en voz alta; el resto son pantallas normales
 - [ ] Opcional: los ojos siguen tu cara con la cámara frontal
 
 ## Fase 4 — Auto-mejora
@@ -62,3 +70,4 @@
 | 2026-11-17 | Sin atribución de Claude en commits ni PRs | Preferencia de Javier (desactivado también en `~/.claude/settings.json`) |
 | 2026-11-17 | Ojos en pixel art con colores planos (coral sobre fondo oscuro, brillo crema) en vez de ojos realistas | A Javier los ojos realistas le daban mal rollo; el pixel art es más mono y más "asistente" |
 | 2026-11-17 | Ojos: forma pixelada pero movimiento suave (sprite a resolución real con muelle amortiguado) y más recorrido de mirada | El movimiento a saltos de bloque no le gustaba a Javier |
+| 2026-11-18 | Añadidos: teclado, notas/listas, tiempo, copias de seguridad, varias pantallas con sincronización en vivo, resumen diario y papel por dispositivo | Ideas aprobadas por Javier |
