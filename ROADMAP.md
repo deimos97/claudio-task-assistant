@@ -34,7 +34,7 @@
 - [x] Claudio contesta en voz alta: `say` de macOS (voz Reed, es/en según el texto) → AAC; mientras habla no escucha. Si su respuesta es una pregunta, vuelve a escuchar sin wake word (2026-11-18)
 - [x] Botón de micro en la cabecera (activa la voz en ese dispositivo y lo recuerda); con la voz activada, tocar la cara = "te escucho" (2026-11-18)
 - [x] Voz probada en el iPhone real: funciona (2026-11-18). Javier sigue probando por si hay fallos
-- [ ] Cambiar la voz: a Javier no le gusta Reed. Muestras de `say`, Piper y Kokoro en `/_voces/` de dev; falta que elija
+- [ ] Cambiar la voz: a Javier no le gusta Reed. Inglés: **Kokoro Heart** (elegida 2026-11-18). Español: ninguna local convence (acento latino o inglés); busca acento de España y carácter de "robot Disney" (entrañable, expresivo; no efectos robóticos). Opciones: clonar voz en local (Chatterbox/F5) con una grabación de referencia, o voz diseñada en la nube (ElevenLabs). Pendiente de decidir
 - [x] Claudio decía "te dije que había mirado la lista y no lo hice": el historial sin herramientas le confundía. Ahora recibe la agenda en cada turno y el historial es de las últimas 3 h (2026-11-18)
 - [x] Las muestras de voz no sonaban en el iPhone: el service worker ya no intercepta audio (2026-11-18)
 - [x] Registro del gasto de la API (`api_usage`, `GET /api/usage`): ~0,00034 $ por mensaje de media (2026-11-18)
