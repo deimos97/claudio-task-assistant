@@ -48,6 +48,8 @@ Pendiente: que Javier elija voz. Opciones de pago si ninguna convence: ElevenLab
 
 ## Monkey noises
 
+- **Safari no reproduce audio que pasa por el service worker** (pide trozos con `Range`): `web/sw.js` deja pasar directos el audio, el vídeo y todo lo que esté bajo `/_`.
+
 - **La wake word no es un modelo dedicado:** se transcribe cada frase que supera el ruido de fondo y se mira si empieza por "Claudio". Con tele o conversación, whisper trabaja en continuo (local, sin coste). Si hay falsos positivos o carga, cambiar por openWakeWord/Porcupine solo esa pieza.
 - **iOS necesita un toque para el audio:** tras una recarga (cada despliegue), si `AudioContext` no arranca solo, Claudio dice "Toca la pantalla para despertar mis oídos" y el primer toque lo activa. La auto-recarga no ocurre mientras está escuchando una orden o hablando.
 - **Permiso del micro en la PWA:** iOS puede volver a pedirlo al abrir la app desde la pantalla de inicio.

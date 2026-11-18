@@ -35,6 +35,8 @@
 - [x] Botón de micro en la cabecera (activa la voz en ese dispositivo y lo recuerda); con la voz activada, tocar la cara = "te escucho" (2026-11-18)
 - [x] Voz probada en el iPhone real: funciona (2026-11-18). Javier sigue probando por si hay fallos
 - [ ] Cambiar la voz: a Javier no le gusta Reed. Muestras de `say`, Piper y Kokoro en `/_voces/` de dev; falta que elija
+- [x] Claudio decía "te dije que había mirado la lista y no lo hice": el historial sin herramientas le confundía. Ahora recibe la agenda en cada turno y el historial es de las últimas 3 h (2026-11-18)
+- [x] Las muestras de voz no sonaban en el iPhone: el service worker ya no intercepta audio (2026-11-18)
 - [x] Registro del gasto de la API (`api_usage`, `GET /api/usage`): ~0,00034 $ por mensaje de media (2026-11-18)
 - [ ] Notas y listas (compra, ideas…) que Claudio mantiene
 - [ ] Tiempo (clima) junto al reloj (Open-Meteo, sin clave)

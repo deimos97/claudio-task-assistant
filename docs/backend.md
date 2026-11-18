@@ -45,7 +45,8 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 
 - Modelo `claude-haiku-5-5` con `effort: "low"`; bucle manual de herramientas (máx. 8 llamadas por turno).
 - Herramientas: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item`. Un error de validación vuelve al modelo como `tool_result` con `is_error`, para que lo corrija o lo diga.
-- Una sola conversación para todas las pantallas; los turnos se atienden de uno en uno. Se guardan solo el texto del usuario y la respuesta final (`chat_messages`); el contexto son los últimos 20.
+- Una sola conversación para todas las pantallas; los turnos se atienden de uno en uno. Se guardan solo el texto del usuario y la respuesta final (`chat_messages`); el contexto son los últimos 20 mensajes **de las últimas 3 horas**.
+- En cada turno se le da **la agenda pendiente con ids** (bloque dinámico del `system`, detrás de la parte en caché): contesta con ella sin llamar a `list_items`, y sabe los ids para cambiar cosas.
 - La fecha y hora actual van en un segundo bloque del `system`, después del prompt fijo (que lleva `cache_control`).
 
 ## Gasto
@@ -71,4 +72,5 @@ Los POST exigen `Content-Type: application/json` (protección CSRF).
 
 - **Cada reinicio de dev hace una copia** (`--watch` reinicia al guardar): por eso solo se guardan las 14 últimas `-auto`.
 - **Sin clave, el chat responde 503** con un mensaje claro y el campo de texto dice "Falta la clave de Anthropic".
+- **El historial solo lleva texto, sin las llamadas a herramientas**: el modelo veía respuestas como "tienes X" sin ninguna consulta detrás y acababa "confesando" que no había mirado la lista (2026-11-18). Se arregló dándole la agenda en cada turno y diciéndole en el prompt que las herramientas de turnos pasados sí se ejecutaron.
 - **Cambios hechos desde otro proceso** (un script con `node`) escriben en la BD pero no avisan a las pantallas: el bus de avisos vive dentro del servidor.

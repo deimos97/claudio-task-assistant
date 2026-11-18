@@ -5,12 +5,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { db } from './db.ts';
 import { ANTHROPIC_KEY_FILE, localNow } from './config.ts';
 import { publish } from './bus.ts';
-import { completeItem, createItem, deleteItem, InputError, listItems, updateItem } from './items.ts';
+import { completeItem, createItem, deleteItem, InputError, listItems, updateItem, upcoming } from './items.ts';
 
 const MODEL = 'claude-haiku-5-5';
 // Precios de Haiku 5.5 en USD por millón de tokens (prompts < 100K). Caché: lectura 0,1×, escritura 1,25×.
 const PRICE = { input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.125 };
-const HISTORY = 20;         // mensajes de contexto (10 idas y vueltas)
+const HISTORY = 20;         // mensajes de contexto (10 idas y vueltas)…
+const HISTORY_HOURS = 3;    // …de las últimas 3 horas: lo de ayer ya no es conversación; la agenda va aparte
 const MAX_STEPS = 8;        // llamadas al modelo por turno, como mucho
 
 function apiKey(): string | undefined {
@@ -33,15 +34,17 @@ Llevas su agenda: eventos (con fecha y hora) y tareas (con o sin fecha límite).
 
 Cómo respondes:
 - En el idioma en que te hablen (español o inglés).
-- Muy breve: una o dos frases. Se leen en una pantalla pequeña y más adelante se dirán en voz alta. Sin markdown, sin listas largas.
+- Muy breve: una o dos frases. Se leen en una pantalla pequeña y a menudo se dicen en voz alta. Sin markdown, sin listas largas.
 - Cálido y con algo de gracia, sin pasarte.
 
 Cómo usas las herramientas:
 - Fechas siempre en hora local de Madrid: "YYYY-MM-DD" para todo el día o "YYYY-MM-DDTHH:MM". Calcula "mañana", "el jueves", etc. a partir de la fecha actual que se te da.
-- Para cambiar, completar o borrar algo, primero mira la lista para saber su id. No inventes ids.
+- Al final de estas instrucciones tienes la agenda pendiente tal como está ahora, con ids. Contesta con ella y úsala para cambiar, completar o borrar cosas. Usa list_items solo para lo ya hecho o para buscar fuera de esa lista. No inventes ids.
 - Si falta un dato imprescindible (p. ej. la hora de una cita), pregúntalo; si no lo es, apúntalo sin fecha y dilo.
 - Tras hacer cambios, confírmalos en una frase.
-- No digas que has hecho algo si la herramienta ha dado error.`;
+- No digas que has hecho algo si la herramienta ha dado error.
+
+Sobre la conversación anterior: de los turnos pasados solo ves el texto; las herramientas que usaste entonces no aparecen, pero sí se ejecutaron. Fíate de la agenda actual. No comentes si has mirado o no la lista ni te disculpes por eso.`;
 
 const tools: Anthropic.Tool[] = [
   {
@@ -144,9 +147,22 @@ export function usageSummary() {
 
 type ChatRow = { id: number; role: 'user' | 'assistant'; text: string; created_at: string };
 
-export function recentMessages(limit = HISTORY): ChatRow[] {
-  const rows = db.prepare('SELECT id, role, text, created_at FROM chat_messages ORDER BY id DESC LIMIT ?').all(limit) as ChatRow[];
+export function recentMessages(limit = HISTORY, hours?: number): ChatRow[] {
+  const since = hours ? new Date(Date.now() - hours * 3600_000).toISOString() : '';
+  const rows = db.prepare('SELECT id, role, text, created_at FROM chat_messages WHERE created_at >= ? ORDER BY id DESC LIMIT ?')
+    .all(since, limit) as ChatRow[];
   return rows.reverse();
+}
+
+/** La agenda pendiente en texto, para dársela al modelo en cada turno. */
+function agendaText(): string {
+  const items = upcoming(60);
+  if (!items.length) return 'Agenda pendiente: vacía.';
+  const lines = items.map((it) => {
+    const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.at) : 'sin fecha';
+    return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${it.notes ? ` (${it.notes})` : ''}`;
+  });
+  return `Agenda pendiente ahora mismo (id · tipo · cuándo · título):\n${lines.join('\n')}`;
 }
 function save(role: 'user' | 'assistant', text: string): ChatRow {
   const r = db.prepare('INSERT INTO chat_messages (role, text) VALUES (?, ?)').run(role, text);
@@ -168,7 +184,7 @@ async function turn(text: string): Promise<{ reply: string; changed: boolean }> 
   if (!c) throw new Error(`Falta la clave de Anthropic (${ANTHROPIC_KEY_FILE})`);
 
   // Historial: solo texto; debe empezar por un mensaje del usuario.
-  const history = recentMessages();
+  const history = recentMessages(HISTORY, HISTORY_HOURS);
   while (history.length && history[0].role !== 'user') history.shift();
   save('user', text);
   const messages: Anthropic.MessageParam[] = [
@@ -179,7 +195,7 @@ async function turn(text: string): Promise<{ reply: string; changed: boolean }> 
   const now = localNow();
   const system: Anthropic.TextBlockParam[] = [
     { type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: `Ahora: ${now.weekday} ${now.stamp} (Europe/Madrid).` },
+    { type: 'text', text: `Ahora: ${now.weekday} ${now.stamp} (Europe/Madrid).\n\n${agendaText()}` },
   ];
 
   let changed = false;
