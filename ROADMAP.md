@@ -55,22 +55,24 @@
 ## Fase 3 — Proactividad (y mejoras de voz)
 
 - [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase
-- [ ] Voz de Claudio mejor que `say` (TTS neuronal local o en la nube)
 - [ ] Check-ins proactivos (pedir km, confirmar tareas hechas)
 - [ ] Resumen diario por la mañana: agenda, mantenimiento que vence, tiempo
-- [ ] Papel por dispositivo: solo el iPhone del escritorio ("kiosco") escucha la wake word, duerme de noche y habla en voz alta; el resto son pantallas normales
+- [ ] Papel por dispositivo: solo el iPhone del escritorio ("kiosco") escucha la wake word, duerme de noche y habla en voz alta; el resto son pantallas normales. Ya hay medio camino: la voz se activa por dispositivo con el botón del micro
 - [ ] Opcional: los ojos siguen tu cara con la cámara frontal
 
 ## Fase 4 — Auto-mejora
 
 - [ ] "Claudio, quiero X" → item en ROADMAP / issue de GitHub
 - [ ] Claude Code en el Mac mini lo implementa en `dev` y despliega en dev
-- [ ] Aprobación de Javier → merge a `main` → despliegue a producción
+- [x] Aprobación de Javier → merge a `main` → despliegue a producción: el despliegue ya es automático al mergear (2026-11-18)
 
 ## Deuda técnica
 
 - [x] Despliegue automático al mergear a `main`: el Mac mini mira `origin/main` cada minuto y ejecuta `deploy.sh` (2026-11-18)
 - [ ] Si un despliegue automático falla, que Claudio lo diga (ahora solo queda en `~/Library/Logs/claudio-deploy.log`)
+- [ ] Cuando se le da hora a una tarea ("la limpieza dental el jueves a las 17:00"), Claudio la deja como tarea con hora en vez de pasarla a evento
+- [ ] El chat de la API no tiene login en la red de casa: cualquiera en la Wi-Fi puede usarlo (y gastar API). Bajo riesgo hoy; revisar si se abre más
+- [ ] Sesión más larga fuera de casa: si molesta volver a entrar cada 12 h, "recordarme" en el home-portal (decidido en vez de emparejar dispositivos)
 
 - [x] El icono PNG tenía esquinas transparentes; ahora es un cuadrado opaco en pixel art (2026-11-17)
 

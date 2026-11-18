@@ -2,7 +2,7 @@
 
 Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado: **fase 1 en curso** (2026-11-18): fase 0 cerrada (iPhone en kiosco, HTTPS por dominio). En dev ya hay BD, agenda real en "Próximo", chat con Haiku por teclado y por voz (wake word "Claudio", whisper, `say`) y avisos en vivo entre pantallas. Ver `ROADMAP.md`.
+Estado: **fase 1 casi cerrada** (2026-11-18), en producción: agenda real en "Próximo", chat con Haiku por teclado y por voz (wake word "Claudio" + pitido, whisper en el Mac mini, voz Jorge en español y Kokoro Heart en inglés), avisos en vivo entre pantallas y registro del gasto. Producción se despliega sola al mergear a `main`. Falta: notas/listas, tiempo, Google Calendar y la voz definitiva en castellano. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -63,6 +63,16 @@ npm run check    # comprobación de tipos
 |---|---|---|---|---|---|
 | dev (`https://claudio-dev.hotwheelsandbids.com`) | `dev` | esta copia de trabajo | 3111 | `com.deimos97.claudio.dev` (con `--watch`) | `~/Library/Logs/claudio-dev.log` |
 | prod (`https://claudio.hotwheelsandbids.com`) | `main` | `~/Services/claudio-prod` (clon aparte) | 3110 | `com.deimos97.claudio.prod` | `~/Library/Logs/claudio-prod.log` |
+
+Servicios compartidos por dev y prod (también LaunchAgents, solo en 127.0.0.1):
+
+| Servicio | LaunchAgent | Puerto | Instalar | Log |
+|---|---|---|---|---|
+| Reconocimiento de voz (whisper.cpp) | `com.deimos97.claudio.whisper` | 3120 | `scripts/install-whisper.sh` | `~/Library/Logs/claudio-whisper.log` |
+| Voz inglesa (Kokoro) | `com.deimos97.claudio.kokoro` | 3121 | `scripts/install-tts.sh` | `~/Library/Logs/claudio-kokoro.log` |
+| Despliegue automático (cada minuto) | `com.deimos97.claudio.autodeploy` | — | `scripts/install-autodeploy.sh` | `~/Library/Logs/claudio-deploy.log` |
+
+Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/`, `tts-venv/`, `anthropic-key` (600).
 
 - Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. **Al mergear, prod se despliega sola en menos de un minuto** (LaunchAgent `com.deimos97.claudio.autodeploy`; ver `docs/despliegue.md`). A mano: `scripts/deploy.sh`.
 - Nunca editar a mano `~/Services/claudio-prod`: `deploy.sh` hace `git reset --hard origin/main`.
