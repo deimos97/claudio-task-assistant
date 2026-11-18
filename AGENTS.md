@@ -44,6 +44,7 @@ web/capture-worklet.js hilo de audio que pasa las muestras del micro
 web/sw.js              service worker (red primero; la API nunca se cachea)
 scripts/install-agent.sh  instala el LaunchAgent de dev o prod
 scripts/deploy.sh      despliega producción desde origin/main
+scripts/auto-deploy.sh      cada minuto: si origin/main cambió, ejecuta deploy.sh (scripts/install-autodeploy.sh lo instala)
 scripts/install-whisper.sh  instala whisper.cpp + modelos y su LaunchAgent (común a dev y prod)
 scripts/install-tts.sh      instala Kokoro (voz inglesa) + modelos y su LaunchAgent (común a dev y prod)
 scripts/kokoro-server.py    servidor HTTP mínimo de Kokoro (127.0.0.1:3121)
@@ -63,7 +64,7 @@ npm run check    # comprobación de tipos
 | dev (`https://claudio-dev.hotwheelsandbids.com`) | `dev` | esta copia de trabajo | 3111 | `com.deimos97.claudio.dev` (con `--watch`) | `~/Library/Logs/claudio-dev.log` |
 | prod (`https://claudio.hotwheelsandbids.com`) | `main` | `~/Services/claudio-prod` (clon aparte) | 3110 | `com.deimos97.claudio.prod` | `~/Library/Logs/claudio-prod.log` |
 
-- Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. **El merge no despliega**: después hay que ejecutar `scripts/deploy.sh` (el merge de Javier es el sí para desplegar).
+- Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. **Al mergear, prod se despliega sola en menos de un minuto** (LaunchAgent `com.deimos97.claudio.autodeploy`; ver `docs/despliegue.md`). A mano: `scripts/deploy.sh`.
 - Nunca editar a mano `~/Services/claudio-prod`: `deploy.sh` hace `git reset --hard origin/main`.
 - La PWA consulta `/api/health` cada 30 s y **se recarga sola** si cambia la versión (commit + fecha del último cambio en `web/`). Un despliegue llega al iPhone sin tocarlo.
 - Estado del servicio: `launchctl print gui/$(id -u)/com.deimos97.claudio.dev`; reiniciar: `launchctl kickstart -k gui/$(id -u)/com.deimos97.claudio.dev`.
@@ -90,6 +91,7 @@ npm run check    # comprobación de tipos
 |---|---|
 | Empezar o cerrar cualquier tarea | `ROADMAP.md` |
 | Montar o depurar el iPhone del escritorio (kiosco, PWA, HTTPS) | `docs/iphone-kiosco.md` |
+| Desplegar o cambiar cómo se despliega | `docs/despliegue.md` |
 | Tocar dominios, certificados, DNS o el nginx de la Raspberry | `docs/servidor-pi.md` |
 | Tocar la BD, migraciones, copias, el chat con Haiku o la clave de Anthropic | `docs/backend.md` |
 | Tocar la voz: micro, wake word, whisper, `say` | `docs/voz.md` |

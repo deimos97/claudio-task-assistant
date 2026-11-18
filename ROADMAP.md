@@ -69,6 +69,9 @@
 
 ## Deuda técnica
 
+- [x] Despliegue automático al mergear a `main`: el Mac mini mira `origin/main` cada minuto y ejecuta `deploy.sh` (2026-11-18)
+- [ ] Si un despliegue automático falla, que Claudio lo diga (ahora solo queda en `~/Library/Logs/claudio-deploy.log`)
+
 - [x] El icono PNG tenía esquinas transparentes; ahora es un cuadrado opaco en pixel art (2026-11-17)
 
 ## Decisiones tomadas
@@ -90,6 +93,7 @@
 | 2026-11-18 | Datos fuera del repo, en `~/.claudio/<entorno>/` (BD y copias); clave de Anthropic en `~/.claudio/anthropic-key` (600), común a dev y prod | `deploy.sh` hace `git reset --hard` en prod; dev y prod no comparten datos |
 | 2026-11-18 | Chat: una sola conversación compartida por todas las pantallas; solo se guarda el texto de cada turno (no las llamadas a herramientas); contexto de 20 mensajes | Simple y barato; la agenda real está en la BD, no en el historial |
 | 2026-11-18 | POST de la API solo con `Content-Type: application/json` | Protección CSRF barata: otra web no puede enviarlo sin preflight CORS |
+| 2026-11-18 | Despliegue automático por sondeo desde el Mac mini (cada minuto), no con GitHub Actions ni webhook | Repo público: un runner propio en casa es arriesgado y un webhook expone otro punto de entrada. El merge de Javier sigue siendo el sí |
 | 2026-11-18 | Voces provisionales: Jorge (macOS, mejorada) en español y Kokoro Heart en inglés | A Javier le gustan; ninguna local tenía acento de España con carácter a la vez. La original de Loquendo no se puede usar (discontinuada, con licencia) |
 | 2026-11-18 | Voz adelantada de la fase 3 a la fase 1 | Preferencia de Javier |
 | 2026-11-18 | Wake word = VAD por energía en el navegador + whisper en el Mac mini, sin modelo de wake word ni cuentas externas | Todo local, sin entrenar un modelo ni depender de Picovoice; whisper ya hacía falta para las órdenes. Si hay falsos positivos o va lento, se cambia solo esa pieza |

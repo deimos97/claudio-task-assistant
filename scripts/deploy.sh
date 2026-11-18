@@ -6,7 +6,7 @@ set -euo pipefail
 PROD_DIR="$HOME/Services/claudio-prod"
 REPO_URL="https://github.com/deimos97/claudio-task-assistant.git"
 LABEL="com.deimos97.claudio.prod"
-SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
+SCRIPTS="${CLAUDIO_SCRIPTS_DIR:-$(cd "$(dirname "$0")" && pwd)}"  # auto-deploy.sh ejecuta una copia temporal
 
 if [[ ! -d "$PROD_DIR/.git" ]]; then
   mkdir -p "$(dirname "$PROD_DIR")"
