@@ -93,7 +93,7 @@
 
 - [x] Despliegue automático al mergear a `main`: el Mac mini mira `origin/main` cada minuto y ejecuta `deploy.sh` (2026-11-18)
 - [ ] Si un despliegue automático falla, que Claudio lo diga (ahora solo queda en `~/Library/Logs/claudio-deploy.log`)
-- [ ] Cuando se le da hora a una tarea ("la limpieza dental el jueves a las 17:00"), Claudio la deja como tarea con hora en vez de pasarla a evento
+- [x] Cuando se le da hora a una tarea ("la limpieza dental el jueves a las 17:00"), Claudio la dejaba como tarea con hora en vez de pasarla a evento: regla en el prompt ("si te dan hora, es un evento") (2026-11-18)
 - [ ] El chat de la API no tiene login en la red de casa: cualquiera en la Wi-Fi puede usarlo (y gastar API). Bajo riesgo hoy; revisar si se abre más
 - [ ] Sesión más larga fuera de casa: si molesta volver a entrar cada 12 h, "recordarme" en el home-portal (decidido en vez de emparejar dispositivos)
 
