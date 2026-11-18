@@ -28,7 +28,7 @@
 - [x] Chat de texto con Haiku (`claude-haiku-5-5`, esfuerzo bajo) y herramientas: listar, crear, cambiar, completar y borrar eventos/tareas (2026-11-18; probado con una API simulada)
 - [x] Probado con la API real en dev: crear, mover, completar y borrar; responde en el idioma de la pregunta y pide la hora si falta; ~1–2,5 s por respuesta (2026-11-18)
 - [x] Entrada por teclado: botón pequeño en móvil que abre un panel; en escritorio, columna de chat siempre visible (2026-11-18)
-- [ ] Desplegar fase 1 a prod (PR #2 `dev → main`, abierto el 2026-11-18)
+- [x] Fase 1 (texto + voz) desplegada a prod: PR #2 mergeado y `scripts/deploy.sh` (2026-11-18, c7a5abc). BD de prod nueva y vacía; migraciones 001–002 aplicadas
 - [x] Wake word "Claudio" + pitido: el navegador detecta frases por energía (VAD) y whisper las transcribe; si empiezan por "Claudio" (o "oye/hey Claudio") es para él. "Claudio" solo → pitido y espera la orden 7 s; "Claudio, haz X" de un tirón → directo (2026-11-18; probado con audio grabado en el navegador)
 - [x] Reconocimiento de voz en el Mac mini: whisper.cpp (`large-v3-turbo` q5 + VAD Silero) como LaunchAgent en 127.0.0.1:3120; idioma fijado a "es" (entiende igual el inglés) → ~0,85 s por frase (2026-11-18)
 - [x] Claudio contesta en voz alta: `say` de macOS (voz Reed, es/en según el texto) → AAC; mientras habla no escucha. Si su respuesta es una pregunta, vuelve a escuchar sin wake word (2026-11-18)

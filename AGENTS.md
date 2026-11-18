@@ -63,7 +63,7 @@ npm run check    # comprobación de tipos
 | dev (`https://claudio-dev.hotwheelsandbids.com`) | `dev` | esta copia de trabajo | 3111 | `com.deimos97.claudio.dev` (con `--watch`) | `~/Library/Logs/claudio-dev.log` |
 | prod (`https://claudio.hotwheelsandbids.com`) | `main` | `~/Services/claudio-prod` (clon aparte) | 3110 | `com.deimos97.claudio.prod` | `~/Library/Logs/claudio-prod.log` |
 
-- Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. Después: `scripts/deploy.sh`.
+- Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. **El merge no despliega**: después hay que ejecutar `scripts/deploy.sh` (el merge de Javier es el sí para desplegar).
 - Nunca editar a mano `~/Services/claudio-prod`: `deploy.sh` hace `git reset --hard origin/main`.
 - La PWA consulta `/api/health` cada 30 s y **se recarga sola** si cambia la versión (commit + fecha del último cambio en `web/`). Un despliegue llega al iPhone sin tocarlo.
 - Estado del servicio: `launchctl print gui/$(id -u)/com.deimos97.claudio.dev`; reiniciar: `launchctl kickstart -k gui/$(id -u)/com.deimos97.claudio.dev`.
