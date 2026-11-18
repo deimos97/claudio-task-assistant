@@ -20,6 +20,7 @@
     <section class="face" id="face" aria-label="Claudio">
       <div class="eyes-box"><canvas id="eyes" role="img" aria-label="Ojos de Claudio"></canvas></div>
       <p id="caption" class="caption"></p>
+      <div id="nudges" class="nudges" aria-label="Claudio quiere decirte algo"></div>
     </section>
 
     <section class="panel" id="panel" aria-labelledby="panel-title">
@@ -45,11 +46,38 @@
     <span id="weather" class="weather"></span>
     <span id="date" class="date"></span>
     <span id="status" class="status" title="Conexión con el servidor"></span>
-    <button id="mic" class="mic" type="button" aria-pressed="false" aria-label="Voz: escuchar «Claudio»" title="Voz">
+    <button id="mic" class="round mic" type="button" aria-pressed="false" aria-label="Voz" title="Voz">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     </button>
-    <button id="kbd" class="kbd" type="button" aria-label="Escribir a Claudio" aria-controls="chat" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    <button id="cam" class="round cam" type="button" aria-pressed="false" aria-label="Cámara: que los ojos te sigan" title="Cámara">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h2l1.5-2h6l1.5 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+    </button>
+    <button id="menu" class="round menu" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-pop" aria-label="Menú">K</button>
   </footer>
+
+  <div id="menu-pop" class="menu-pop" role="menu" hidden>
+    <button id="kbd" class="menu-item kbd" type="button" role="menuitem" aria-controls="chat" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span>Teclado</span>
+    </button>
+    <a class="menu-item" href="admin.html" role="menuitem">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span>Gestionar agenda, listas y rutinas</span>
+    </a>
+    <div class="menu-group" role="group" aria-label="Perfil de este dispositivo">
+      <span class="menu-label">Este dispositivo</span>
+      <div class="seg">
+        <button type="button" data-who="" role="menuitemradio">Kiosco</button>
+        <button type="button" data-who="javier" role="menuitemradio">Javier</button>
+        <button type="button" data-who="ana" role="menuitemradio">Ana</button>
+      </div>
+      <span id="menu-hint" class="menu-hint"></span>
+    </div>
+    <button id="menu-debug" class="menu-item" type="button" role="menuitem">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Estados de los ojos y medidas</span>
+    </button>
+  </div>
 
   <nav id="debug" class="debug" hidden>
     <button data-state="idle">idle</button>
@@ -59,7 +87,13 @@
     <button data-state="happy">happy</button>
     <button data-state="sleepy">sleepy</button>
     <button data-state="sleeping">sleeping</button>
+    <button data-action="cam">cámara</button>
   </nav>
+
+  <figure id="cam-debug" class="cam-debug" hidden>
+    <canvas width="240" height="180" aria-label="Lo que ve la cámara"></canvas>
+    <figcaption id="cam-info"></figcaption>
+  </figure>
 
   <script type="module" src="app.js"></script>
 </body>

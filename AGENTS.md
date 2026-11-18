@@ -1,8 +1,8 @@
 # Claudio — asistente de escritorio
 
-Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
+Asistente de Javier y Ana (pareja) que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado (2026-11-18): **fase 1 y base de la fase 2 hechas en dev**. En producción: agenda, chat con Haiku por teclado y voz (wake word "Claudio", whisper, voz Jorge/Kokoro Heart), avisos en vivo y gasto. Solo en dev, pendiente de PR: listas (compra…), categorías, rutinas de mantenimiento (por tiempo y por uso), tiempo en el pie y panel dinámico que Claudio controla. Producción se despliega sola al mergear a `main`. Google Calendar y la voz definitiva en castellano, en la fase 5. Ver `ROADMAP.md`.
+Estado (2026-11-18): en producción, fase 1 y base de la fase 2: agenda, listas, categorías, rutinas de mantenimiento, tiempo, panel dinámico, chat con Haiku por teclado y voz. Solo en dev, pendiente de PR: dos personas (Javier y Ana: dueño de cada cosa, quién habla por el tono de voz o el perfil del dispositivo, Jorge o Mónica al contestar), subcategorías, prioridad 0–3, plazos con antelación (`start_at`), avisos en pantalla (resumen de la mañana, "¿has cambiado la arena?", citas pasadas sin marcar), perfil kiosco/móvil, ojos que siguen con la cámara, página de gestión (`admin.html`) y el panel que enseña solo lo cambiado (12 s). Producción se despliega sola al mergear a `main`. Google Calendar y la voz definitiva en castellano, en la fase 5. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -29,7 +29,7 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 
 ```
 server/index.ts        API (health, upcoming, items, chat, stream) y sirve web/
-server/config.ts       rutas (datos en ~/.claudio/<entorno>/), hora local de Madrid
+server/config.ts       rutas (datos en ~/.claudio/<entorno>/), hora local de Madrid, las dos personas (PEOPLE) y su voz
 server/db.ts           SQLite (node:sqlite) + migraciones + copias automáticas
 server/migrations/     NNN_nombre.sql, se aplican solas al arrancar
 server/items.ts        eventos y tareas: consultas y validación (y `checkCategory`)
@@ -37,12 +37,16 @@ server/lists.ts        listas (compra, ideas…) y sus entradas
 server/routines.ts     mantenimiento: activos, contadores, lecturas, rutinas y su próxima fecha
 server/view.ts         lo que enseña el panel: "Próximo" o la vista que pide Claudio (`show`)
 server/weather.ts      tiempo de Open-Meteo (caché 15 min)
+server/nudges.ts       avisos que esperan en pantalla a que se toquen (resumen, rutinas, km, citas pasadas)
 server/chat.ts         chat con Claude Haiku (claude-haiku-5-5) y sus herramientas
 server/bus.ts          avisos en vivo (SSE) a todas las pantallas
-server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, `say` Jorge (es) y Kokoro Heart (en, 127.0.0.1:3121)
-web/index.html         página única: ojos arriba, panel abajo, pie (tiempo, fecha, conexión, micro, teclado)
+server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, Jorge/Mónica con el servicio de voz (127.0.0.1:3122, `say` de respaldo) y Kokoro Heart (en, 127.0.0.1:3121)
+web/index.html         página única: ojos y avisos arriba, panel abajo, pie (tiempo, fecha, conexión, micro, cámara, menú)
+web/admin.html/.js/.css  gestión a mano: agenda, listas y rutinas
+web/camera.js          ojos que te siguen: detector de caras local (MediaPipe BlazeFace) con el movimiento de respaldo; recuadro de depuración
+web/models/            modelo de caras (blaze_face_short_range.tflite); el motor WebAssembly se sirve desde node_modules en /vendor/mediapipe/
 web/eyes.js            ojos en pixel art: forma en "bloques" (escena de 40×22) pero posición continua a resolución real → movimiento suave. Estados: idle, listening, thinking, talking, happy, sleepy, sleeping
-web/app.js             fecha y tiempo, modo noche, panel dinámico, chat por teclado, voz, avisos en vivo, salud + auto-recarga, wake lock
+web/app.js             fecha y tiempo, modo noche, panel dinámico, avisos, menú y perfil, chat por teclado, voz, cámara, avisos en vivo, salud + auto-recarga, wake lock
 web/voice.js           oídos: micro → 16 kHz → VAD → frases WAV; pitido; reproducir la voz; detectar "Claudio"
 web/capture-worklet.js hilo de audio que pasa las muestras del micro
 web/sw.js              service worker (red primero; la API nunca se cachea)
@@ -52,6 +56,7 @@ scripts/auto-deploy.sh      cada minuto: si origin/main cambió, ejecuta deploy.
 scripts/install-whisper.sh  instala whisper.cpp + modelos y su LaunchAgent (común a dev y prod)
 scripts/install-tts.sh      instala Kokoro (voz inglesa) + modelos y su LaunchAgent (común a dev y prod)
 scripts/kokoro-server.py    servidor HTTP mínimo de Kokoro (127.0.0.1:3121)
+scripts/voice-server.swift  voz de macOS con Jorge y Mónica ya cargados (127.0.0.1:3122); scripts/install-voice.sh lo compila e instala
 ```
 
 ## Comandos
@@ -74,6 +79,7 @@ Servicios compartidos por dev y prod (también LaunchAgents, solo en 127.0.0.1):
 |---|---|---|---|---|
 | Reconocimiento de voz (whisper.cpp) | `com.deimos97.claudio.whisper` | 3120 | `scripts/install-whisper.sh` | `~/Library/Logs/claudio-whisper.log` |
 | Voz inglesa (Kokoro) | `com.deimos97.claudio.kokoro` | 3121 | `scripts/install-tts.sh` | `~/Library/Logs/claudio-kokoro.log` |
+| Voz española (macOS, voces cargadas) | `com.deimos97.claudio.voice` | 3122 | `scripts/install-voice.sh` | `~/Library/Logs/claudio-voice.log` |
 | Despliegue automático (cada minuto) | `com.deimos97.claudio.autodeploy` | — | `scripts/install-autodeploy.sh` | `~/Library/Logs/claudio-deploy.log` |
 
 Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/`, `tts-venv/`, `anthropic-key` (600).
@@ -86,13 +92,16 @@ Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/
 
 ## Conceptos del dominio
 
-- **Categoría:** texto libre en minúsculas en eventos, tareas, listas, entradas y rutinas ("casa", "gatos"). La elige Claudio si no se dice.
+- **Categoría:** ruta en minúsculas de hasta 3 niveles en eventos, tareas, listas, entradas y rutinas ("casa/gatos", "yo/salud"). Filtrar por "casa" incluye sus subcategorías. La elige Claudio si no se dice.
+- **Dueño (`owner`):** `javier`, `ana` o NULL (de los dos). **Quién habla** se sabe por el tono de voz o por el dueño del dispositivo; ver `docs/voz.md`.
+- **Prioridad:** 0 algún día · 1 normal (por defecto) · 2 importante · 3 crítico.
 - **Lista:** compra, ideas, notas… con entradas que se tachan. En la compra, la categoría es la sección del súper.
 - **Activo:** coche, bici, casa…
 - **Contador:** km, horas de motor, lavados…
 - **Lectura:** valor fechado de un contador. Con varias lecturas se estima el ritmo de uso (km/día).
 - **Rutina** (tarea de mantenimiento, tabla `routines`): disparada por tiempo, por uso, o *lo que llegue antes* (p. ej. neumáticos: 5 años o 40.000 km). Con el ritmo de uso se proyecta una fecha y aparece en la misma lista que los eventos.
-- **Check-in:** Claudio pide una lectura cuando la estimación está vieja o se acerca un vencimiento proyectado.
+- **Aviso (check-in):** lo que Claudio quiere decir o preguntar (resumen de la mañana, rutina que toca, km del coche, cita pasada sin marcar). Nunca lo dice solo: sale como botón bajo los ojos y lo pregunta al tocarlo.
+- **Perfil del dispositivo:** Kiosco (el iPhone de la mesa: escucha, habla, duerme de noche) o el móvil de Javier / Ana (pulsar para hablar).
 
 ## Reglas
 
@@ -110,5 +119,5 @@ Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/
 | Desplegar o cambiar cómo se despliega | `docs/despliegue.md` |
 | Tocar dominios, certificados, DNS o el nginx de la Raspberry | `docs/servidor-pi.md` |
 | Tocar la BD, migraciones, copias, el chat con Haiku, sus herramientas, listas, rutinas o la clave de Anthropic | `docs/backend.md` |
-| Tocar la interfaz: panel dinámico, pie, ojos | `docs/interfaz.md` |
+| Tocar la interfaz: panel dinámico, pie, menú, avisos, cámara, ojos, gestión | `docs/interfaz.md` |
 | Tocar la voz: micro, wake word, whisper, `say` | `docs/voz.md` |

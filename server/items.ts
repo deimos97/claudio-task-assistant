@@ -11,10 +11,13 @@ export type Item = {
   end_at: string | null;
   notes: string | null;
   category: string | null;
+  owner: 'javier' | 'ana' | null;
+  priority: number;
+  start_at: string | null;
   done_at: string | null;
 };
 
-const COLS = 'id, kind, title, at, end_at, notes, category, done_at';
+const COLS = 'id, kind, title, at, end_at, notes, category, owner, priority, start_at, done_at';
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
 
@@ -35,11 +38,36 @@ function checkKind(v: unknown): 'event' | 'task' {
   if (v !== 'event' && v !== 'task') throw new InputError('kind debe ser "event" o "task"');
   return v;
 }
-/** Categoría: texto libre corto, en minúsculas ("casa", "gatos"). */
+/** Categoría: ruta en minúsculas de hasta 3 niveles, "casa/gatos" ("casa > gatos" también vale). */
 export function checkCategory(v: unknown): string | null {
   if (v === undefined || v === null || v === '') return null;
   if (typeof v !== 'string') throw new InputError('category debe ser texto');
-  return v.trim().toLowerCase().slice(0, 40) || null;
+  const path = v.toLowerCase().split(/[\/>›]/).map((p) => p.trim()).filter(Boolean).slice(0, 3).map((p) => p.slice(0, 30));
+  return path.join('/') || null;
+}
+/** SQL para "esta categoría o cualquiera de sus subcategorías". */
+export const categoryWhere = (col = 'category') => `(${col} = ? OR ${col} LIKE ? || '/%')`;
+
+/** Dueño: 'javier', 'ana' o null (de los dos). */
+export function checkOwner(v: unknown): 'javier' | 'ana' | null {
+  if (v === undefined || v === null || v === '' || v === 'both' || v === 'ambos') return null;
+  if (v === 'javier' || v === 'ana') return v;
+  throw new InputError('owner debe ser "javier", "ana" o "both"');
+}
+/** Desde cuándo ponerse con una tarea: "YYYY-MM-DD", no después de su fecha límite. */
+function checkStart(v: unknown, deadline: string | null): string | null {
+  const s = checkWhen(v, 'start_at');
+  if (!s) return null;
+  const d = s.slice(0, 10);
+  if (deadline && d > deadline.slice(0, 10)) throw new InputError('start_at no puede ser posterior a la fecha límite (at)');
+  return d;
+}
+/** Prioridad 0–3: 0 algún día · 1 normal · 2 importante · 3 crítico. */
+export function checkPriority(v: unknown, fallback = 1): number {
+  if (v === undefined || v === null || v === '') return fallback;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > 3) throw new InputError('priority debe ser 0, 1, 2 o 3');
+  return n;
 }
 export function optText(v: unknown, max = 2000): string | null {
   if (v === undefined || v === null || v === '') return null;
@@ -56,24 +84,40 @@ function mustGet(id: unknown): Item {
   return item;
 }
 
-/** Lo que aparece en "Próximo": tareas abiertas (vencidas incluidas) y eventos que no han pasado. */
-export function upcoming(limit = 40): Item[] {
+/** Un evento sin marcar sigue en pantalla (en rojo, "¿lo tuviste?") hasta 30 días después. */
+export const PAST_EVENT_DAYS = 30;
+export function pastCutoff(): string {
+  const d = new Date(`${localNow().date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - PAST_EVENT_DAYS);
+  return d.toISOString().slice(0, 10);
+}
+/** ¿Ya ha pasado este evento? (los de todo el día, al acabar el día) */
+export function isPastEvent(it: Pick<Item, 'kind' | 'at' | 'end_at'>): boolean {
+  if (it.kind !== 'event' || !it.at) return false;
+  const end = it.end_at ?? it.at;
   const { stamp, date } = localNow();
+  return end.length === 10 ? end < date : end < stamp;
+}
+
+/** Lo que aparece en "Próximo": tareas abiertas (vencidas incluidas) y eventos sin marcar
+ *  (los pasados, hasta 30 días, para confirmar que se tuvieron o reprogramarlos).
+ *  Las tareas con start_at futuro esperan, salvo con includeWaiting (la agenda que ve Claudio). */
+export function upcoming(limit = 40, includeWaiting = false): Item[] {
+  const { date } = localNow();
   return db.prepare(`
     SELECT ${COLS} FROM items
     WHERE done_at IS NULL
-      AND (kind = 'task'
-           OR at IS NULL
-           OR COALESCE(end_at, at) >= CASE WHEN length(COALESCE(end_at, at)) = 10 THEN ? ELSE ? END)
-    ORDER BY at IS NULL, at, id
-    LIMIT ?`).all(date, stamp, limit) as Item[];
+      AND (kind = 'task' OR at IS NULL OR COALESCE(end_at, at) >= ?)
+      AND (? OR start_at IS NULL OR start_at <= ?)
+    ORDER BY COALESCE(start_at, at) IS NULL, at IS NULL, at, id
+    LIMIT ?`).all(pastCutoff(), includeWaiting ? 1 : 0, date, limit) as Item[];
 }
 
 export function listItems(opts: { includeDone?: boolean; from?: string; to?: string; category?: string } = {}): Item[] {
   const where: string[] = [];
   const args: string[] = [];
   if (!opts.includeDone) where.push('done_at IS NULL');
-  if (opts.category) { where.push('category = ?'); args.push(opts.category.toLowerCase()); }
+  if (opts.category) { const c = checkCategory(opts.category)!; where.push(categoryWhere()); args.push(c, c); }
   if (opts.from) { where.push('at >= ?'); args.push(opts.from); }
   if (opts.to) { where.push('at <= ?'); args.push(opts.to); }
   return db.prepare(`SELECT ${COLS} FROM items
@@ -86,8 +130,9 @@ export function createItem(input: Record<string, unknown>): Item {
   const at = checkWhen(input.at, 'at');
   const end = kind === 'event' ? checkWhen(input.end_at, 'end_at') : null;
   if (kind === 'event' && !at) throw new InputError('un evento necesita fecha (at)');
-  const r = db.prepare('INSERT INTO items (kind, title, at, end_at, notes, category) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(kind, title, at, end, optText(input.notes), checkCategory(input.category));
+  const start = kind === 'task' ? checkStart(input.start_at, at) : null;
+  const r = db.prepare('INSERT INTO items (kind, title, at, end_at, notes, category, owner, priority, start_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(kind, title, at, end, optText(input.notes), checkCategory(input.category), checkOwner(input.owner), checkPriority(input.priority), start);
   publish('items');
   return getItem(Number(r.lastInsertRowid))!;
 }
@@ -101,11 +146,15 @@ export function updateItem(input: Record<string, unknown>): Item {
     end_at: 'end_at' in input ? checkWhen(input.end_at, 'end_at') : item.end_at,
     notes: 'notes' in input ? optText(input.notes) : item.notes,
     category: 'category' in input ? checkCategory(input.category) : item.category,
+    owner: 'owner' in input ? checkOwner(input.owner) : item.owner,
+    priority: 'priority' in input ? checkPriority(input.priority) : item.priority,
+    start_at: item.start_at,
   };
+  next.start_at = next.kind === 'task' ? ('start_at' in input ? checkStart(input.start_at, next.at) : item.start_at) : null;
   if (next.kind === 'event' && !next.at) throw new InputError('un evento necesita fecha (at)');
-  db.prepare(`UPDATE items SET kind = ?, title = ?, at = ?, end_at = ?, notes = ?, category = ?,
+  db.prepare(`UPDATE items SET kind = ?, title = ?, at = ?, end_at = ?, notes = ?, category = ?, owner = ?, priority = ?, start_at = ?,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`)
-    .run(next.kind, next.title, next.at, next.end_at, next.notes, next.category, item.id);
+    .run(next.kind, next.title, next.at, next.end_at, next.notes, next.category, next.owner, next.priority, next.start_at, item.id);
   publish('items');
   return getItem(item.id)!;
 }

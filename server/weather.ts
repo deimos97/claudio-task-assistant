@@ -1,10 +1,10 @@
 // Tiempo con Open-Meteo (gratis, sin clave ni cuenta). Se pide como mucho cada 15 min.
-// Lugar: CLAUDIO_LAT / CLAUDIO_LON / CLAUDIO_PLACE (por defecto, Madrid).
+// Lugar: CLAUDIO_LAT / CLAUDIO_LON / CLAUDIO_PLACE (por defecto, Barajas, Madrid).
 import { TZ } from './config.ts';
 
-const LAT = Number(process.env.CLAUDIO_LAT ?? 40.4168);
-const LON = Number(process.env.CLAUDIO_LON ?? -3.7038);
-export const PLACE = process.env.CLAUDIO_PLACE ?? 'Madrid';
+const LAT = Number(process.env.CLAUDIO_LAT ?? 40.4737);
+const LON = Number(process.env.CLAUDIO_LON ?? -3.5797);
+export const PLACE = process.env.CLAUDIO_PLACE ?? 'Barajas';
 const TTL = 15 * 60_000;
 
 // Códigos WMO → icono y texto

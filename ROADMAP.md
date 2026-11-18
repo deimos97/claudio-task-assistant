@@ -41,14 +41,26 @@
 - [x] Listas que Claudio mantiene (compra, ideas, notas…): la de la compra va por secciones del súper; no duplica lo pendiente; lo comprado se tacha (2026-11-18)
 - [x] Categorías en todo (eventos, tareas, listas, rutinas): Claudio pone las obvias y dice cuál ha puesto (2026-11-18)
 - [x] Tiempo (Open-Meteo, sin clave) en el pie junto a la fecha ("Miércoles - 18-11-26") y en la agenda de Claudio. Lugar por defecto: Madrid (`CLAUDIO_LAT`/`CLAUDIO_LON`/`CLAUDIO_PLACE`) (2026-11-18)
-- [ ] Confirmar la ubicación del tiempo (ahora Madrid)
+- [x] Tiempo de Barajas (Madrid) por defecto (2026-11-18)
 - [x] Interfaz: fuera la barra de arriba; tiempo, fecha, punto de conexión, micro y teclado en un pie de una línea; ojos al 36 % en reposo (2026-11-18)
 - [x] Panel dinámico: Claudio "te enseña" lo que pides con la herramienta `show` (una lista, una categoría, lo de N días…): los ojos encogen al 13 %, el panel sube como una tarjeta y lo miran; vuelve a "Próximo" tras 60 s sin tocarlo, al tocar los ojos o la ×, o con una respuesta que no enseña nada (2026-11-18)
 - [x] Pie y altura comprobados en el iPhone real: la PWA solo enseña `100svh` (848 de 896) (2026-11-18)
-- [ ] Probar el panel dinámico en el iPhone real
+- [ ] Probar el panel dinámico en el iPhone real (también lo que se enseña solo tras un cambio): ver la tarea de la fase 3
 - [x] Sincronización en vivo entre pantallas (SSE, `/api/stream`): agenda y chat aparecen al momento en todas (2026-11-18)
 - [x] Diseño de escritorio básico: ojos + lista a la izquierda, chat a la derecha (≥ 900 px con ratón) (2026-11-18)
 - [x] Eventos y tareas propios de Claudio en "Próximo": vencidas en rojo, tocar el círculo marca una tarea como hecha (2026-11-18)
+
+## Fase 1b — Dos personas, subcategorías y prioridad
+
+- [x] Subcategorías: la categoría es una ruta "casa/gatos", "yo/salud"; pedir "casa" incluye todo lo de dentro y la vista agrupa por subcategoría (2026-11-18)
+- [x] Prioridad 0–3 en tareas y rutinas: 0 algún día (gris) · 1 normal (por defecto) · 2 importante (!) · 3 crítico (‼ en rojo) (2026-11-18)
+- [x] Dueño: Javier, Ana o los dos (migración 004). Lo de la casa, de los dos; "recuérdame…" de quien habla; "recuérdale a Ana…" de Ana; si Haiku duda, pregunta. Probado con la API real (2026-11-18)
+- [x] Quién habla: por voz, el tono medio de la frase (autocorrelación en el navegador; corte 150 Hz ±10, en la duda el dueño del dispositivo); por teclado, el dueño del dispositivo (menú de la pulsación larga) (2026-11-18)
+- [ ] Calibrar el corte de tono con más frases de Javier y Ana (las medidas del menú enseñan el tono de la última frase). Primera prueba real (2026-11-18): Javier y luego Ana, bien distinguidos
+- [x] Voz según quién habla: Jorge a Javier (y si no se sabe), Mónica (mejorada) a Ana (2026-11-18)
+- [x] Plazos con antelación ("la limpieza dental antes del 1 de diciembre, pero hay que pedirla con 1–2 semanas"): la tarea es la gestión, con `at` = último día para hacerla y `start_at` = desde cuándo avisar; el límite real va en las notas. Antes de `start_at` no sale en pantalla; después enseña "quedan N días". Si el margen ya pasó, Claudio lo dice y sube la prioridad (migración 005) (2026-11-18)
+- [x] Pie: fecha corta sin año ("Mié - 18-11") y círculo de dispositivo: K (kiosco, compartido) → J → A (2026-11-18)
+- [x] Vistas por prioridad: "¿qué tengo que hacer hoy sí o sí?" → `show` con `days: 1`, `who`, `sort: "priority"` (2026-11-18)
 
 ## Fase 2 — Motor de mantenimiento
 
@@ -60,11 +72,16 @@
 
 ## Fase 3 — Proactividad (y mejoras de voz)
 
-- [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase
-- [ ] Check-ins proactivos (pedir km, confirmar tareas hechas): p. ej. "¿has cambiado la arena? ¿cuándo?" cuando una rutina vence
-- [ ] Resumen diario por la mañana: agenda, mantenimiento que vence, tiempo
-- [ ] Papel por dispositivo: solo el iPhone del escritorio ("kiosco") escucha la wake word, duerme de noche y habla en voz alta; el resto son pantallas normales. Ya hay medio camino: la voz se activa por dispositivo con el botón del micro
-- [ ] Opcional: los ojos siguen tu cara con la cámara frontal
+- [x] Responder antes: Haiku en streaming, cada frase se dice en cuanto se escribe, y fin de frase a 500 ms (2026-11-18). ~0,4 s menos; primera frase sonando a ~1,65 s de acabar whisper
+- [x] Voz más rápida: servicio propio con Jorge y Mónica ya cargados (0,05 s por frase en vez de 0,7 s con `say`). Primera frase sonando a ~1 s de mandar la pregunta (2026-11-18)
+- [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase. Hoy no hace falta: detecta bien. Mirarlo si hay falsos «Claudio» con la tele, si tarda en reaccionar o si whisper carga el Mac
+- [x] Avisos en pantalla en vez de hablar solo (2026-11-18): rutina que toca ("¿Hecho? Cambiar la arena"), contador con lectura vieja ("Coche: ¿cuántos km?"), cita pasada sin marcar ("¿Lo tuviste?"). Al tocarlo, Claudio pregunta y apunta la respuesta. `server/nudges.ts`
+- [x] Resumen de la mañana como aviso (6:00–12:30): tiempo, lo de hoy y lo que no hay que olvidar, más la vista de hoy (2026-11-18)
+- [x] Papel por dispositivo (2026-11-18): el kiosco escucha «Claudio», habla y duerme de noche; el móvil de Javier o Ana tiene micro de pulsar para hablar y no duerme. Se elige en el menú del pie
+- [x] Los ojos te siguen con la cámara frontal, por movimiento (2026-11-18). `web/camera.js`
+- [x] Detector de caras local (MediaPipe BlazeFace en el iPhone, sin CDN) con el movimiento de respaldo, y recuadro de depuración con lo que ve (2026-11-18)
+- [ ] Probar en el iPhone: cámara + micro a la vez (iOS a veces corta un `getUserMedia` al abrir otro), avisos, anillo de las rutinas, menú y perfil Javier/Ana en el móvil (pulsar para hablar)
+- [x] Tras un cambio, el panel enseña solo lo cambiado, resaltado, 12 s (2026-11-18)
 
 ## Fase 4 — Auto-mejora
 
@@ -80,8 +97,8 @@
 ## Deuda técnica
 
 - [x] Despliegue automático al mergear a `main`: el Mac mini mira `origin/main` cada minuto y ejecuta `deploy.sh` (2026-11-18)
-- [ ] Si un despliegue automático falla, que Claudio lo diga (ahora solo queda en `~/Library/Logs/claudio-deploy.log`)
-- [ ] Cuando se le da hora a una tarea ("la limpieza dental el jueves a las 17:00"), Claudio la deja como tarea con hora en vez de pasarla a evento
+- [x] Si un despliegue automático falla, Claudio lo avisa: punto naranja y aviso en pantalla (`~/.claudio/deploy-status.json`) (2026-11-18)
+- [x] Cuando se le da hora a una tarea ("la limpieza dental el jueves a las 17:00"), Claudio la dejaba como tarea con hora en vez de pasarla a evento: regla en el prompt ("si te dan hora, es un evento") (2026-11-18)
 - [ ] El chat de la API no tiene login en la red de casa: cualquiera en la Wi-Fi puede usarlo (y gastar API). Bajo riesgo hoy; revisar si se abre más
 - [ ] Sesión más larga fuera de casa: si molesta volver a entrar cada 12 h, "recordarme" en el home-portal (decidido en vez de emparejar dispositivos)
 
@@ -91,6 +108,15 @@
 
 | Fecha | Decisión | Por qué |
 |---|---|---|
+| 2026-11-18 | Voz: servicio en Swift con las voces de macOS ya cargadas, `say` de respaldo | Mismo Jorge, 0,7 s → 0,05 s por frase, sin dependencias ni red |
+| 2026-11-18 | Detector de caras con MediaPipe en el iPhone (WebAssembly), servido desde el Mac mini | El iPhone va sobrado, no necesita red ni CDN y no manda imágenes a ningún sitio |
+| 2026-11-18 | Detector propio de «Claudio»: no por ahora | La transcripción con whisper ya lo detecta bien; se revisa si aparecen falsos positivos o el Mac va cargado |
+| 2026-11-18 | Tras cada cambio, la pantalla enseña sola dónde ha quedado (resaltado) y se quita a los 12 s | Javier quiere ver lo que se ha añadido sin pedirlo |
+| 2026-11-18 | Claudio no habla por su cuenta: lo proactivo (resumen, preguntas de rutinas, km, citas pasadas) sale como aviso en pantalla y se dice al tocarlo o pedirlo | Javier no quiere que hable si no hay nadie delante |
+| 2026-11-18 | Las citas también se marcan ("la tuve"); si pasan sin marcar, siguen en rojo 30 días | Para no olvidar reprogramar una cita a la que no se fue |
+| 2026-11-18 | Pie con solo micro, cámara y menú; teclado, gestión y perfil van en el menú | Despejar el pie y dejar a mano lo que se activa a menudo |
+| 2026-11-18 | Página de gestión propia (`admin.html`) sobre la misma API, sin login aparte | Crear y corregir a mano sin pasar por Claudio; misma protección que el resto (LAN o login del portal) |
+| 2026-11-18 | Seguimiento de la cámara por movimiento, sin librerías de caras | Funciona en Safari, pesa cero y basta para que los ojos miren hacia quien se mueve |
 | 2026-11-17 | LLM en la nube (Claude Haiku), sin modelo local en el iPhone | El iPhone 11 no tiene Apple Intelligence; un modelo de 1–3B se calienta y es mucho peor |
 | 2026-11-17 | Cliente web (PWA), no app nativa | Las apps con cuenta gratuita caducan a los 7 días; la PWA permite que Claude Code despliegue solo |
 | 2026-11-17 | Backend en el Mac mini al principio | Siempre encendido y es donde ya corre Claude Code; se puede mover a un VPS más adelante |
@@ -114,6 +140,11 @@
 | 2026-11-18 | Google Calendar y la voz definitiva en castellano pasan a una fase 5 | Ni bloquean el uso diario ni son urgentes; primero listas, tiempo y mantenimiento |
 | 2026-11-18 | Categorías en todo; Claudio elige las obvias y lo dice | Para poder pedir "lo de casa" sin clasificar a mano |
 | 2026-11-18 | Panel dinámico que Claudio controla: en reposo ojos al 36 %, al enseñar algo el panel crece como tarjeta sobre los ojos (13 %) y vuelve solo a los 60 s | Que la pantalla muestre lo que preguntas sin tocarla (solo para hacer scroll); como tarjeta parece que Claudio te lo enseña |
+| 2026-11-18 | Plazos con antelación = tarea de la gestión con fecha límite (`at`) y fecha de aviso (`start_at`), no dos tareas ni un evento | Lo que hay que hacer es pedir la cita; el plazo real va en las notas y la tarea se calla hasta que toca |
+| 2026-11-18 | Prioridad en 4 niveles (0–3) | Pocos niveles: Haiku los asigna con criterio estable y se eligen bien a voz |
+| 2026-11-18 | Claudio es de Javier y Ana; cada cosa es de uno, del otro o de los dos | Ana también lo usa; lo de la casa es compartido |
+| 2026-11-18 | Quién habla: tono de voz (local) + dueño del dispositivo para el teclado; huella de voz solo si el tono falla | Gratis, sin entrenar nada y suficiente para dos voces de distinto tono |
+| 2026-11-18 | Jorge contesta a Javier y Mónica a Ana | Así se oye a quién ha entendido Claudio que le habla |
 | 2026-11-18 | Lo repetitivo es una "rutina" (tabla `routines`), no una tarea que se clona | Una sola fila con su historial; la siguiente fecha se calcula, no se guarda |
 | 2026-11-18 | Categorías como texto libre en minúsculas, sin tabla aparte | Claudio las elige y reutiliza las que ve en uso; no hace falta gestionarlas |
 | 2026-11-18 | Dominio propio en vez de Tailscale: `claudio.` / `claudio-dev.hotwheelsandbids.com`, nginx de la Raspberry como proxy al Mac mini; red local sin login, fuera con login del home-portal | Reutiliza la infraestructura que ya existe (nginx, certbot, Pi-hole, login) y no exige app en cada dispositivo |

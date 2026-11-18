@@ -3,12 +3,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { existsSync, readFileSync } from 'node:fs';
 import { db } from './db.ts';
-import { ANTHROPIC_KEY_FILE, localNow } from './config.ts';
+import { ANTHROPIC_KEY_FILE, localNow, PEOPLE, type Who } from './config.ts';
 import { publish } from './bus.ts';
-import { completeItem, createItem, deleteItem, InputError, listItems, updateItem, upcoming } from './items.ts';
+import { completeItem, createItem, deleteItem, InputError, isPastEvent, listItems, updateItem, upcoming } from './items.ts';
+import { deployStatus, nudges, seeNudge } from './nudges.ts';
 import { addToList, allLists, checkEntries, clearList, entries, removeEntries, updateEntry } from './lists.ts';
 import { assetsSummary, createRoutine, deleteRoutine, doneRoutine, listRoutines, logReading, routineLog, updateRoutine } from './routines.ts';
-import { buildView, checkSpec, type ViewSpec } from './view.ts';
+import { buildView, checkSpec, PRIORITY_LABEL, type ViewSpec } from './view.ts';
 import { weather, weatherText } from './weather.ts';
 
 const MODEL = 'claude-haiku-5-5';
@@ -33,7 +34,7 @@ function getClient(): Anthropic | null {
 }
 export const chatConfigured = () => apiKey() !== undefined;
 
-const SYSTEM = `Eres Claudio, un pequeño asistente que vive en un iPhone sobre la mesa de Javier, con unos ojos en pixel art.
+const SYSTEM = `Eres Claudio, un pequeño asistente que vive en un iPhone sobre la mesa de casa de Javier y Ana (pareja), con unos ojos en pixel art. Os habla a los dos; Javier es el que más lo usa.
 Llevas su agenda (eventos y tareas), sus listas (la compra, ideas, notas…) y sus rutinas de mantenimiento (cosas que se repiten: "cambiar la arena de los gatos cada 5 días", "revisión del coche cada año o 15.000 km"). Lo guardas tú con las herramientas y se ve en el panel bajo tus ojos.
 
 Cómo respondes:
@@ -46,10 +47,20 @@ Cómo usas las herramientas:
 - Al final de estas instrucciones tienes la agenda pendiente tal como está ahora, con ids. También el tiempo. Contesta con ello y úsalo para cambiar, completar o borrar cosas. Usa list_items solo para lo ya hecho o para buscar fuera de esa lista. No inventes ids.
 - Evento = algo con día y hora concretos (citas, quedadas): si te dan hora, es un evento aunque suene a tarea ("el dentista el jueves a las 17:00"). Tarea = algo por hacer, con o sin fecha límite.
 - Si falta un dato imprescindible (p. ej. la hora de una cita), pregúntalo; si no lo es, apúntalo sin fecha y dilo.
-- Categorías: pon siempre category (una o dos palabras en minúsculas: "casa", "gatos", "coche", "salud", "trabajo", "compras"…). Reutiliza las que ya existen si encajan. Si la eliges tú (no te la han dicho), dilo siempre en la respuesta, de pasada ("lo pongo en gatos"). Si algo de la agenda no tiene categoría y lo tocas, pónsela.
+- Categorías: pon siempre category, en minúsculas y como ruta de hasta 3 niveles: "casa/gatos", "casa/limpieza", "yo/salud", "yo/economía", "coche"… Pedir "casa" incluye todas sus subcategorías. Reutiliza las que ya existen si encajan. Si la eliges tú (no te la han dicho), dilo siempre en la respuesta, de pasada ("lo pongo en gatos"). Si algo de la agenda no tiene categoría y lo tocas, pónsela.
+- Dueño (owner): "javier", "ana" o "both". Lo de la casa y lo común es "both". Lo personal (su médico, sus pagos, su trabajo) es de quien te habla, salvo que digan que es para el otro ("recuérdale a Ana…" → ana). "Recuérdame…" o "tengo que…" en primera persona → de quien habla, salvo que sea claramente de la casa (limpieza, compra, gatos). Si no sabes quién te habla y es personal, o dudas de si es de uno o de los dos, pregunta.
+- Sabes quién te habla por el tono de su voz o por el móvil que usa: es la línea "Te habla" (y la marca [Javier]/[Ana] en el historial). Si te lo preguntan, dilo; si pone que no se sabe, pregúntalo solo cuando importe (algo personal).
+- Cuando alguien pregunta por "lo mío"/"qué tengo", es lo suyo más lo compartido (show con who). No le cuentes a uno lo personal del otro salvo que lo pida.
+- Prioridad (priority, tareas y rutinas): 0 algún día (se puede posponer sin problema) · 1 normal (por defecto) · 2 importante · 3 crítico (si no se hace hay un problema serio: correa de distribución, frenos, pagos o citas críticas o difíciles de conseguir). Ponla tú con criterio; no la digas salvo que sea 2 o 3.
+- Plazos con antelación: si algo tiene que ocurrir antes de X pero hay que gestionarlo con margen (pedir una cita, un trámite, un regalo), la tarea es la gestión ("Pedir cita…"): at = último día para hacerla (X menos la antelación; si no la dicen, 2 semanas para citas), start_at = desde cuándo avisar (unas 2 semanas antes de at) y notes con el límite real y el porqué ("el seguro acaba el 1 de diciembre"). Si at ya ha pasado o está a pocos días, dilo y sube la prioridad a 2 (o 3 si perderlo es grave). Antes de start_at la tarea espera sin salir en pantalla. Cuando digan que ya tienen la cita, completa la tarea y crea el evento.
+- "¿Qué tengo que hacer hoy sí o sí?" → show con days 1, who, sort "priority" (y min_priority 2 si piden solo lo imprescindible), y comenta lo más importante primero.
 - Listas: "apunta leche" o "añade a la compra" → list_add en la lista "Compra", con categoría de sección del súper en cada cosa ("fruta y verdura", "lácteos", "carne y pescado", "panadería", "despensa", "bebidas", "congelados", "limpieza", "higiene", "mascotas"). Lo comprado se tacha con list_check. Para ideas o notas sueltas, listas "Ideas" o "Notas" (o la que pida).
 - Rutinas: si algo se repite cada X tiempo o cada X km/horas, es una rutina (create_routine), no una tarea. Al crearla, si no sabes cuándo se hizo por última vez, pregúntalo; si no lo sabe, se queda como pendiente ya. "Ya he cambiado la arena" → routine_done (fecha de hoy salvo que diga otra). Lecturas de contadores ("el coche tiene 12.300 km") → log_reading.
-- Enseñar: si te piden ver algo ("enséñame lo de casa", "¿qué hay en la compra?", "¿qué tengo esta semana?"), o acabas de cambiar una lista o una categoría, usa show para que el panel lo enseñe. Entonces no lo enumeres en tu respuesta: un comentario corto basta ("Aquí tienes lo de casa: 3 cosas, la arena toca mañana").
+- Enseñar: si te piden ver algo ("enséñame lo de casa", "¿qué hay en la compra?", "¿qué tengo esta semana?"), usa show para que el panel lo enseñe. Entonces no lo enumeres en tu respuesta: un comentario corto basta ("Aquí tienes lo de casa: 3 cosas, la arena toca mañana").
+- Cuando cambias algo (añadir a una lista, crear o mover una tarea, apuntar una rutina), la pantalla enseña sola unos segundos dónde ha quedado, con lo cambiado resaltado. No hace falta show para eso; úsalo solo si quieres enseñar otra cosa.
+- Citas que ya pasaron sin marcar (salen como "ya pasó, sin confirmar"): cuando digan que la tuvieron, complete_item; si no fueron, ofrece cambiarla de fecha (update_item).
+- Avisos: no hablas por tu cuenta. Lo que quieres preguntar sale en pantalla como aviso y, cuando lo tocan, te llega como "Pregúntame si…" o "Dame el resumen de hoy". Entonces haz tú la pregunta a quien te habla (tú, en segunda persona), corta y natural, y termina con ella, sin explicar qué harás después ("¿Has cambiado ya la arena? ¿Cuándo?", "¿Cuántos km lleva el coche?", "¿Fuiste al fisio ayer?"). Apunta la respuesta cuando llegue (routine_done con la fecha que digan, log_reading, complete_item). Si te preguntan "¿qué querías?", pregunta por los avisos pendientes de la agenda, de uno en uno.
+- Resumen de hoy: en dos o tres frases, el tiempo, lo de hoy (citas con hora, tareas que vencen o son importantes, rutinas que tocan) y lo que conviene no olvidar mañana; y show con days 1 y sort "priority". Si te habla alguien, lo suyo y lo compartido.
 - Tras hacer cambios, confírmalos en una frase.
 - No digas que has hecho algo si la herramienta ha dado error.
 
@@ -65,7 +76,7 @@ const tools: Anthropic.Tool[] = [
         include_done: { type: 'boolean', description: 'Incluir también las tareas ya hechas' },
         from: { type: 'string', description: 'Desde esta fecha ("YYYY-MM-DD" o "YYYY-MM-DDTHH:MM")' },
         to: { type: 'string', description: 'Hasta esta fecha' },
-        category: { type: 'string' },
+        category: { type: 'string', description: 'Incluye sus subcategorías' },
       },
     },
   },
@@ -80,9 +91,12 @@ const tools: Anthropic.Tool[] = [
         at: { type: 'string', description: 'Evento: inicio. Tarea: fecha límite (opcional). "YYYY-MM-DD" o "YYYY-MM-DDTHH:MM"' },
         end_at: { type: 'string', description: 'Solo eventos, opcional: fin' },
         notes: { type: 'string' },
-        category: { type: 'string', description: 'Categoría en minúsculas: "casa", "gatos", "salud"…' },
+        category: { type: 'string', description: 'Ruta en minúsculas: "casa/gatos", "yo/salud"…' },
+        start_at: { type: 'string', description: 'Solo tareas: desde cuándo ponerse ("YYYY-MM-DD"); antes no sale en pantalla. at es el plazo' },
+        owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
+        priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
-      required: ['kind', 'title', 'category'],
+      required: ['kind', 'title', 'category', 'owner'],
     },
   },
   {
@@ -98,13 +112,16 @@ const tools: Anthropic.Tool[] = [
         end_at: { type: 'string' },
         notes: { type: 'string' },
         category: { type: 'string' },
+        start_at: { type: 'string', description: 'Solo tareas: desde cuándo ponerse ("YYYY-MM-DD"); antes no sale en pantalla. at es el plazo' },
+        owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
+        priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
       required: ['id'],
     },
   },
   {
     name: 'complete_item',
-    description: 'Marca una tarea como hecha (o como pendiente otra vez con done = false).',
+    description: 'Marca una tarea como hecha o una cita (evento) como ya tenida; done = false la deja pendiente otra vez.',
     input_schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, done: { type: 'boolean' } },
@@ -128,6 +145,7 @@ const tools: Anthropic.Tool[] = [
       properties: {
         list: { type: 'string', description: 'Nombre de la lista' },
         list_category: { type: 'string', description: 'Solo al crear una lista nueva: su categoría' },
+        list_owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'Solo al crear una lista nueva: de quién es' },
         entries: {
           type: 'array',
           items: { type: 'object', properties: { text: { type: 'string' }, category: { type: 'string' } }, required: ['text'] },
@@ -187,8 +205,10 @@ const tools: Anthropic.Tool[] = [
         last_done_at: { type: 'string', description: 'Última vez que se hizo, "YYYY-MM-DD"' },
         last_done_value: { type: 'number', description: 'Valor del contador la última vez' },
         notes: { type: 'string' },
+        owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
+        priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
-      required: ['title', 'category'],
+      required: ['title', 'category', 'owner'],
     },
   },
   {
@@ -200,6 +220,8 @@ const tools: Anthropic.Tool[] = [
         id: { type: 'integer' }, title: { type: 'string' }, category: { type: 'string' },
         every_days: { type: 'integer' }, every_amount: { type: 'number' }, asset: { type: 'string' }, unit: { type: 'string' },
         last_done_at: { type: 'string' }, last_done_value: { type: 'number' }, notes: { type: 'string' },
+        owner: { type: 'string', enum: ['javier', 'ana', 'both'], description: 'De quién es; "both" = de los dos' },
+        priority: { type: 'integer', enum: [0, 1, 2, 3], description: '0 algún día · 1 normal · 2 importante · 3 crítico' },
       },
       required: ['id'],
     },
@@ -248,9 +270,12 @@ const tools: Anthropic.Tool[] = [
         title: { type: 'string', description: 'Título corto del panel; si no, uno automático' },
         list: { type: 'string', description: 'Enseñar una lista ("Compra")' },
         lists: { type: 'boolean', description: 'Enseñar todas las listas' },
-        category: { type: 'string', description: 'Solo esta categoría ("casa")' },
+        category: { type: 'string', description: 'Solo esta categoría y sus subcategorías ("casa")' },
         kinds: { type: 'array', items: { type: 'string', enum: ['events', 'tasks', 'routines'] } },
-        days: { type: 'integer', description: 'Solo lo de los próximos N días ("esta semana" = 7)' },
+        days: { type: 'integer', description: 'Solo lo de los próximos N días, con lo vencido ("hoy" = 1, "esta semana" = 7)' },
+        who: { type: 'string', enum: ['javier', 'ana'], description: 'Lo de esta persona más lo compartido' },
+        min_priority: { type: 'integer', enum: [0, 1, 2, 3] },
+        sort: { type: 'string', enum: ['priority'], description: 'Agrupar por prioridad (lo crítico arriba)' },
       },
     },
   },
@@ -258,7 +283,18 @@ const tools: Anthropic.Tool[] = [
 
 const READ_ONLY = new Set(['list_items', 'routine_history', 'show']);
 
-type TurnState = { view: ViewSpec | null };
+// Lo último que se ha cambiado en el turno: si Claudio no enseña nada con `show`, la
+// pantalla lo enseña sola unos segundos con lo cambiado resaltado.
+type TurnState = { view: ViewSpec | null; auto: ViewSpec | null };
+const ALL_KINDS: ViewSpec['kinds'] = ['events', 'tasks', 'routines'];
+function touched(state: TurnState, spec: ViewSpec, keys: string[] = []) {
+  const same = state.auto && JSON.stringify({ ...state.auto, highlight: undefined }) === JSON.stringify({ ...spec, highlight: undefined });
+  const prev = same ? state.auto!.highlight ?? [] : [];
+  const highlight = [...new Set([...prev, ...keys])];
+  state.auto = { ...spec, ...(highlight.length ? { highlight } : {}), auto: true };
+}
+const listOf = (listId: number) => allLists().find((l) => l.id === listId)?.name;
+const itemSpec = (category: string | null): ViewSpec => (category ? { category } : { title: 'Próximo', kinds: ALL_KINDS });
 
 function runTool(name: string, input: unknown, state: TurnState): string {
   const args = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
@@ -268,15 +304,28 @@ function runTool(name: string, input: unknown, state: TurnState): string {
       return JSON.stringify(listItems({ includeDone: args.include_done === true, from: str(args.from), to: str(args.to), category: str(args.category) }));
     case 'list_add': {
       const r = addToList(args);
+      touched(state, { list: r.list.name }, r.added.map((e) => `e${e.id}`));
       return JSON.stringify({ list: r.list.name, added: r.added.map((e) => ({ id: e.id, text: e.text, category: e.category })) });
     }
-    case 'list_check': return JSON.stringify(checkEntries(args.entry_ids, args.done !== false));
-    case 'list_edit': return JSON.stringify(updateEntry(args));
+    case 'list_check': {
+      const out = checkEntries(args.entry_ids, args.done !== false);
+      const name = out[0] && listOf(out[0].list_id);
+      if (name) touched(state, { list: name }, out.map((e) => `e${e.id}`));
+      return JSON.stringify(out);
+    }
+    case 'list_edit': {
+      const e = updateEntry(args);
+      const name = listOf(e.list_id);
+      if (name) touched(state, { list: name }, [`e${e.id}`]);
+      return JSON.stringify(e);
+    }
     case 'list_remove': return JSON.stringify({ removed: removeEntries(args.entry_ids) });
     case 'list_clear': return JSON.stringify(clearList(args.list, args.whole === true));
-    case 'create_routine': return JSON.stringify(createRoutine(args));
-    case 'update_routine': return JSON.stringify(updateRoutine(args));
-    case 'routine_done': return JSON.stringify(doneRoutine(args));
+    case 'create_routine': case 'update_routine': case 'routine_done': {
+      const r = name === 'create_routine' ? createRoutine(args) : name === 'update_routine' ? updateRoutine(args) : doneRoutine(args);
+      touched(state, r.category ? { category: r.category, kinds: ['routines'] } : { title: 'Rutinas', kinds: ['routines'] }, [`r${r.id}`]);
+      return JSON.stringify(r);
+    }
     case 'routine_history': return JSON.stringify(routineLog(args.id));
     case 'delete_routine': return JSON.stringify({ deleted: deleteRoutine(args.id) });
     case 'log_reading': return JSON.stringify(logReading(args));
@@ -287,8 +336,11 @@ function runTool(name: string, input: unknown, state: TurnState): string {
       const n = v.groups.reduce((a, g) => a + g.rows.length, 0);
       return `En pantalla: "${v.title}" (${n} elementos).`;
     }
-    case 'create_item': return JSON.stringify(createItem(args));
-    case 'update_item': return JSON.stringify(updateItem(args));
+    case 'create_item': case 'update_item': {
+      const it = name === 'create_item' ? createItem(args) : updateItem(args);
+      touched(state, itemSpec(it.category), [`i${it.id}`]);
+      return JSON.stringify(it);
+    }
     case 'complete_item': return JSON.stringify(completeItem(args.id, args.done !== false));
     case 'delete_item': return JSON.stringify({ deleted: deleteItem(args.id) });
     default: throw new InputError(`herramienta desconocida: ${name}`);
@@ -316,11 +368,11 @@ export function usageSummary() {
   };
 }
 
-type ChatRow = { id: number; role: 'user' | 'assistant'; text: string; created_at: string };
+type ChatRow = { id: number; role: 'user' | 'assistant'; text: string; who: Who | null; created_at: string };
 
 export function recentMessages(limit = HISTORY, hours?: number): ChatRow[] {
   const since = hours ? new Date(Date.now() - hours * 3600_000).toISOString() : '';
-  const rows = db.prepare('SELECT id, role, text, created_at FROM chat_messages WHERE created_at >= ? ORDER BY id DESC LIMIT ?')
+  const rows = db.prepare('SELECT id, role, text, who, created_at FROM chat_messages WHERE created_at >= ? ORDER BY id DESC LIMIT ?')
     .all(since, limit) as ChatRow[];
   return rows.reverse();
 }
@@ -328,27 +380,32 @@ export function recentMessages(limit = HISTORY, hours?: number): ChatRow[] {
 /** Agenda, rutinas, listas, contadores y tiempo en texto, para dárselo al modelo en cada turno. */
 async function agendaText(): Promise<string> {
   const out: string[] = [];
+  const now = localNow();
   const cat = (c: string | null) => (c ? ` [${c}]` : '');
+  const tags = (x: { owner: Who | null; priority: number }) =>
+    ` · ${x.owner ? PEOPLE[x.owner].name : 'los dos'}${x.priority !== 1 ? ` · prioridad ${x.priority} (${PRIORITY_LABEL[x.priority].toLowerCase()})` : ''}`;
 
-  const items = upcoming(60);
+  const items = upcoming(80, true);
   out.push(items.length
-    ? `Agenda pendiente (id · tipo · cuándo · título [categoría]):\n${items.map((it) => {
-      const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.at) : 'sin fecha';
-      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${it.notes ? ` (${it.notes})` : ''}`;
+    ? `Agenda pendiente (id · tipo · cuándo · título [categoría] · de quién · prioridad si no es normal):\n${items.map((it) => {
+      const when = it.at ? (it.end_at ? `${it.at} → ${it.end_at}` : it.kind === 'task' ? `límite ${it.at}` : it.at) : 'sin fecha';
+      const start = it.start_at ? ` · empezar desde ${it.start_at}${it.start_at > now.date ? ' (aún no sale en pantalla)' : ''}` : '';
+      const past = isPastEvent(it) ? ' · ya pasó, sin confirmar' : '';
+      return `- #${it.id} ${it.kind === 'event' ? 'evento' : 'tarea'} · ${when} · ${it.title}${cat(it.category)}${tags(it)}${start}${past}${it.notes ? ` (${it.notes})` : ''}`;
     }).join('\n')}`
     : 'Agenda pendiente: vacía.');
 
   const routines = listRoutines();
   out.push(routines.length
     ? `Rutinas (id · título [categoría] · cada cuánto · toca):\n${routines.map((r) =>
-      `- id ${r.id} · ${r.title}${cat(r.category)} · ${r.detail} · toca ${r.due_at ?? 'sin estimar (faltan lecturas)'}`).join('\n')}`
+      `- id ${r.id} · ${r.title}${cat(r.category)}${tags(r)} · ${r.detail} · toca ${r.due_at ?? 'sin estimar (faltan lecturas)'}`).join('\n')}`
     : 'Rutinas: ninguna.');
 
   const lists = allLists();
   out.push(lists.length
     ? `Listas (entradas pendientes con id):\n${lists.map((l) => {
       const es = entries(l.id);
-      return `- ${l.name}${cat(l.category)}: ${es.length ? es.map((e) => `id ${e.id} ${e.text}${cat(e.category)}`).join('; ') : 'vacía'}`;
+      return `- ${l.name}${cat(l.category)}${l.owner ? ` (de ${PEOPLE[l.owner].name})` : ''}: ${es.length ? es.map((e) => `id ${e.id} ${e.text}${cat(e.category)}`).join('; ') : 'vacía'}`;
     }).join('\n')}`
     : 'Listas: ninguna.');
 
@@ -361,12 +418,17 @@ async function agendaText(): Promise<string> {
     UNION SELECT category FROM lists WHERE category IS NOT NULL`).all() as { category: string }[]).map((r) => r.category);
   if (cats.length) out.push(`Categorías en uso: ${cats.join(', ')}.`);
 
+  const pending = nudges();
+  const dep = deployStatus();
+  if (dep && !dep.ok) out.push(`Último despliegue a producción: FALLÓ (${dep.commit}, ${dep.at}). Producción puede seguir con la versión anterior o a medias; lo arregla Javier (o Claude Code) mirando ~/Library/Logs/claudio-deploy.log. Final de la salida:\n${dep.output}`);
+  if (pending.length) out.push(`Avisos pendientes en pantalla (aún sin preguntar):\n${pending.map((n) => `- ${n.label}`).join('\n')}`);
+
   out.push(weatherText(await weather()));
   return out.join('\n\n');
 }
-function save(role: 'user' | 'assistant', text: string): ChatRow {
-  const r = db.prepare('INSERT INTO chat_messages (role, text) VALUES (?, ?)').run(role, text);
-  const row = db.prepare('SELECT id, role, text, created_at FROM chat_messages WHERE id = ?').get(Number(r.lastInsertRowid)) as ChatRow;
+function save(role: 'user' | 'assistant', text: string, who: Who | null = null): ChatRow {
+  const r = db.prepare('INSERT INTO chat_messages (role, text, who) VALUES (?, ?, ?)').run(role, text, who);
+  const row = db.prepare('SELECT id, role, text, who, created_at FROM chat_messages WHERE id = ?').get(Number(r.lastInsertRowid)) as ChatRow;
   publish('chat', row);
   return row;
 }
@@ -374,38 +436,47 @@ function save(role: 'user' | 'assistant', text: string): ChatRow {
 // Un turno cada vez: la conversación es única y compartida entre pantallas.
 let queue: Promise<unknown> = Promise.resolve();
 export type ChatResult = { reply: string; changed: boolean; view: ViewSpec | null };
-export function chat(text: string): Promise<ChatResult> {
-  const run = queue.then(() => turn(text));
+/** `who`: quién habla (por el tono de voz o el dueño del dispositivo); null si no se sabe.
+ *  `onText`: trozos de la respuesta según los escribe el modelo (para empezar a hablar antes). */
+export function chat(text: string, who: Who | null = null, onText?: (delta: string) => void): Promise<ChatResult> {
+  const run = queue.then(() => turn(text, who, onText));
   queue = run.catch(() => {});
   return run;
 }
 
-async function turn(text: string): Promise<ChatResult> {
+async function turn(text: string, who: Who | null, onText?: (delta: string) => void): Promise<ChatResult> {
   const c = getClient();
   if (!c) throw new Error(`Falta la clave de Anthropic (${ANTHROPIC_KEY_FILE})`);
 
   // Historial: solo texto; debe empezar por un mensaje del usuario.
   const history = recentMessages(HISTORY, HISTORY_HOURS);
   while (history.length && history[0].role !== 'user') history.shift();
-  save('user', text);
+  save('user', text, who);
+  // Pedir el resumen (tocando el aviso o de palabra) lo quita de la pantalla por hoy
+  if (/\bresumen\b|\bbriefing\b/i.test(text)) seeNudge('briefing');
   const messages: Anthropic.MessageParam[] = [
-    ...history.map((m) => ({ role: m.role, content: m.text })),
+    // Cada mensaje de usuario lleva quién lo dijo: la conversación es de los dos
+    ...history.map((m) => ({ role: m.role, content: m.role === 'user' && m.who ? `[${PEOPLE[m.who].name}] ${m.text}` : m.text })),
     { role: 'user', content: text },
   ];
 
   const now = localNow();
   const system: Anthropic.TextBlockParam[] = [
     { type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: `Ahora: ${now.weekday} ${now.stamp} (Europe/Madrid).\n\n${await agendaText()}` },
+    { type: 'text', text: `Ahora: ${now.weekday} ${now.stamp} (Europe/Madrid).\nTe habla: ${who ? PEOPLE[who].name : 'no se sabe quién (Javier o Ana)'}.\n\n${await agendaText()}` },
   ];
 
   let changed = false;
-  const state: TurnState = { view: null };
+  const state: TurnState = { view: null, auto: null };
   let reply = '';
   let turnCost = 0;
   const started = Date.now();
+  let firstText = 0;
+  // Todo lo que escribe en el turno (también el texto antes de usar herramientas): se va
+  // mandando a la pantalla según llega y es la respuesta final.
+  const said: string[] = [];
   for (let step = 0; step < MAX_STEPS; step++) {
-    const res = await c.messages.create({
+    const stream = c.messages.stream({
       model: MODEL,
       max_tokens: 16000,
       output_config: { effort: 'low' },
@@ -413,12 +484,22 @@ async function turn(text: string): Promise<ChatResult> {
       tools,
       messages,
     });
+    let stepText = '';
+    stream.on('text', (delta) => {
+      if (!firstText) firstText = Date.now();
+      // Entre pasos (texto, herramientas, más texto), un espacio para que no se peguen las frases
+      if (!stepText && said.length) onText?.(' ');
+      stepText += delta;
+      onText?.(delta);
+    });
+    const res = await stream.finalMessage();
 
     turnCost += recordUsage(res.usage);
+    if (stepText.trim()) said.push(stepText.trim());
     if (res.stop_reason === 'refusal') { reply = 'Eso no puedo hacerlo.'; break; }
-    const textOut = res.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('\n').trim();
     if (res.stop_reason !== 'tool_use') {
-      reply = textOut || (res.stop_reason === 'max_tokens' ? 'Me he liado, ¿me lo repites más corto?' : 'Hecho.');
+      reply = said.join(' ') || (res.stop_reason === 'max_tokens' ? 'Me he liado, ¿me lo repites más corto?' : 'Hecho.');
+      if (!said.length) onText?.(reply);
       break;
     }
 
@@ -435,12 +516,17 @@ async function turn(text: string): Promise<ChatResult> {
       }
     }
     messages.push({ role: 'user', content: results });
-    if (step === MAX_STEPS - 1) reply = textOut || 'Me he quedado a medias; mira la lista por si acaso.';
+    if (step === MAX_STEPS - 1) {
+      reply = said.join(' ') || 'Me he quedado a medias; mira la lista por si acaso.';
+      if (!said.length) onText?.(reply);
+    }
   }
 
+  // Si no ha enseñado nada pero ha cambiado algo, se enseña lo cambiado (y se quita solo).
+  if (!state.view && state.auto) state.view = state.auto;
   // La vista se avisa antes que la respuesta: las pantallas la enseñan mientras la leen.
   if (state.view) publish('show', state.view);
   save('assistant', reply);
-  console.log(`chat: ${Date.now() - started} ms, $${turnCost.toFixed(5)}`);
+  console.log(`chat: ${Date.now() - started} ms (primer texto ${firstText ? firstText - started : '-'} ms), $${turnCost.toFixed(5)}`);
   return { reply, changed, view: state.view };
 }

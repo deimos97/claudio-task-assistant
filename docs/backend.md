@@ -45,13 +45,14 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 
 - Modelo `claude-haiku-5-5` con `effort: "low"`; bucle manual de herramientas (máx. 8 llamadas por turno).
 - Herramientas:
-  - Agenda: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item` (con `category`).
+  - Agenda: `list_items`, `create_item`, `update_item`, `complete_item`, `delete_item` (con `category`, `owner`, `priority` y, en tareas, `start_at`: desde cuándo avisar; antes no salen en "Próximo" pero Claudio sí las ve).
   - Listas: `list_add` (crea la lista si no existe; no duplica lo pendiente), `list_check`, `list_edit`, `list_remove`, `list_clear`.
   - Mantenimiento: `create_routine`, `update_routine`, `routine_done`, `routine_history`, `delete_routine`, `log_reading`.
   - Pantalla: `show` (ver `docs/interfaz.md`).
   - Un error de validación vuelve al modelo como `tool_result` con `is_error`, para que lo corrija o lo diga.
 - Una sola conversación para todas las pantallas; los turnos se atienden de uno en uno. Se guardan solo el texto del usuario y la respuesta final (`chat_messages`); el contexto son los últimos 20 mensajes **de las últimas 3 horas**.
 - En cada turno se le da **una foto del estado con ids** (bloque dinámico del `system`, detrás de la parte en caché): agenda pendiente, rutinas con su próxima fecha, listas con sus entradas pendientes, contadores con su ritmo, categorías en uso y el tiempo. Contesta con ella sin llamar a `list_items`, y sabe los ids para cambiar cosas.
+- **Quién habla:** `POST /api/chat` acepta `who` (`javier`/`ana`). Va en el bloque dinámico ("Te habla: Ana") y se guarda en `chat_messages.who`; en el historial, cada mensaje de usuario lleva delante `[Ana]` o `[Javier]`.
 - La fecha y hora actual van en un segundo bloque del `system`, después del prompt fijo (que lleva `cache_control`).
 
 ## Rutinas (motor de mantenimiento, `server/routines.ts`)
@@ -61,6 +62,15 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 - Nunca hecha (`last_done_at` vacío) y por tiempo → toca hoy.
 - `routine_done` apunta en `routine_log` y actualiza `last_done_*` (no retrocede si se apunta una vez anterior). Si se dice el valor del contador, también cuenta como lectura; si no, se usa el estimado.
 - Activos y contadores se crean solos la primera vez que se nombran (`asset` + `unit`).
+- Cada rutina trae `progress` (parte del ciclo pasada: 0 recién hecha, 1 toca) y `cycle` ("día 3 de 5"), para el anillo del panel.
+
+## Citas pasadas
+
+Un evento sin `done_at` sigue saliendo 30 días después de pasar (`PAST_EVENT_DAYS` en `server/items.ts`), en rojo y con aviso "¿Lo tuviste?". `complete_item` sirve para tareas y para citas.
+
+## Streaming
+
+`chat(text, who, onText)` usa `messages.stream()` en cada paso del bucle de herramientas y va pasando el texto según llega. La respuesta final es todo el texto del turno (también el que escribe antes de usar una herramienta), unido con espacios. El log dice `chat: <ms> (primer texto <ms>)`.
 
 ## Gasto
 
@@ -74,14 +84,20 @@ Con listas, rutinas y `show` (2026-11-18, 6 órdenes de prueba): ~0,001 $ por me
 
 | Ruta | Qué hace |
 |---|---|
-| `GET /api/health` | `{ok, env, version, chat}`; `chat` = hay clave |
-| `GET /api/upcoming` | tareas abiertas (vencidas incluidas) y eventos que no han pasado |
+| `GET /api/health` | `{ok, env, version, chat, deploy}`; `chat` = hay clave; `deploy` = último despliegue automático (`{ok, commit, at}`) |
+| `GET /api/upcoming` | tareas abiertas (vencidas incluidas) y eventos sin marcar (los pasados, hasta 30 días) |
 | `GET /api/view?spec={…}` | lo que enseña el panel; sin `spec`, "Próximo" (eventos, tareas y rutinas de los próximos 14 días) |
-| `POST /api/items/:id/done` | marca hecha (`{"done": false}` la reabre) |
-| `POST /api/routines/:id/done` | rutina hecha hoy |
+| `POST /api/items/:id/done` | tarea hecha o cita tenida (`{"done": false}` la reabre) |
+| `POST /api/routines/:id/done` | rutina hecha hoy (o `{done_at, value}`) |
+| `GET /api/nudges` · `POST /api/nudges/seen` | avisos pendientes · `{key}` lo quita por hoy |
+| `GET /api/items?done=1` · `POST /api/items` · `POST /api/items/:id` · `DELETE /api/items/:id` | gestión de citas y tareas (crear, cambiar solo lo que se envía, borrar) |
+| `GET /api/lists` · `POST /api/lists/entries` · `POST /api/lists/clear` | listas con sus entradas · `{list, entries}` · `{list, whole?}` |
+| `POST /api/entries/:id` · `DELETE /api/entries/:id` | cambiar o borrar una entrada |
+| `GET /api/routines` · `POST /api/routines` · `POST /api/routines/:id` · `DELETE /api/routines/:id` | gestión de rutinas |
 | `POST /api/entries/:id/done` | tacha una entrada de lista (`{"done": false}` la destacha) |
-| `GET /api/weather` | tiempo ahora, hoy y mañana (Open-Meteo, caché 15 min) |
-| `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text}` → `{reply, changed, view}` |
+| `GET /api/weather` | tiempo ahora, hoy y mañana en Barajas (Open-Meteo, caché 15 min; `CLAUDIO_LAT`/`LON`/`PLACE` para cambiarlo) |
+| `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text, who?}` → `{reply, changed, view}`. Con `Accept: application/x-ndjson`, en trozos: `{"t":"text","d"}` según escribe el modelo y al final `{"t":"done",reply,changed,view}` o `{"t":"error",error}` |
+| `POST /api/tts` | `{text, who?, context?}` → audio; `context` (la respuesta hasta esa frase) decide el idioma |
 | `GET /api/usage` | gasto de la API de Anthropic: hoy, este mes y total (llamadas, tokens, USD) |
 | `GET /api/stream` | SSE: `items` (cambió algo), `chat` (mensaje nuevo), `show` (Claudio enseña una vista), `ping` cada 25 s |
 

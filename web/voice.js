@@ -5,12 +5,12 @@
 const RATE = 16000;
 const PREROLL_MS = 350;   // audio que se guarda antes de detectar voz (para no comerse el principio)
 const START_BLOCKS = 3;   // bloques seguidos con voz para empezar una frase (~65 ms)
-const END_MS = 700;       // silencio que cierra una frase
+const END_MS = 500;       // silencio que cierra una frase (era 700; si corta a media frase, subirlo)
 const MIN_SPEECH_MS = 250;
 const MAX_MS = 15_000;
 
 export class Ears {
-  /** @param {(wav: ArrayBuffer, ms: number) => void} onPhrase */
+  /** @param {(wav: ArrayBuffer, ms: number, f0: number | null) => void} onPhrase  f0: tono medio en Hz */
   constructor(onPhrase) {
     this.onPhrase = onPhrase;
     this.ctx = null;
@@ -118,7 +118,7 @@ export class Ears {
       this.pre = [];
       this.preLen = 0;
       this.onLevel?.(false);
-      if (speech >= MIN_SPEECH_MS) this.onPhrase(toWav(blocks), this.phraseMs);
+      if (speech >= MIN_SPEECH_MS) this.onPhrase(toWav(blocks), this.phraseMs, pitchOf(blocks));
     }
   }
 
@@ -144,12 +144,14 @@ export class Ears {
   }
 
   /** Reproduce audio (ArrayBuffer) y resuelve al terminar. Mientras suena, no se escucha. */
-  async play(data) {
+  /** Reproduce un audio sin escucharse a sí mismo. Con `more`, vienen más trozos detrás:
+   *  sigue sordo hasta release() (así no se cuela su propia voz entre frase y frase). */
+  async play(data, { more = false } = {}) {
     const ctx = this.ctx;
     if (!ctx) return;
-    const buffer = await ctx.decodeAudioData(data);
     this.muted = true;
     try {
+      const buffer = await ctx.decodeAudioData(data);
       await new Promise((resolve) => {
         const src = ctx.createBufferSource();
         src.buffer = buffer;
@@ -157,10 +159,15 @@ export class Ears {
         src.onended = resolve;
         src.start();
       });
-      await new Promise((r) => setTimeout(r, 350)); // que no se oiga a sí mismo en la cola
     } finally {
-      this.muted = false;
+      if (!more) await this.release();
     }
+  }
+
+  /** Vuelve a escuchar tras hablar (con un margen para la cola del altavoz). */
+  async release() {
+    await new Promise((r) => setTimeout(r, 350));
+    this.muted = false;
   }
 }
 
@@ -185,4 +192,46 @@ export function wakeWord(text) {
   const m = plain.match(/^\s*(?:(?:oye|hey|hola|ok|okay|vale|eh|ey)[\s,]+)?claudio\b[\s,.!?¡¿:;-]*/i);
   if (!m) return null;
   return Array.from(text).slice(Array.from(m[0]).length).join('').trim();
+}
+
+/** Tono medio (frecuencia fundamental, Hz) de una frase a 16 kHz, o null si no hay voz clara.
+ *  Autocorrelación normalizada en ventanas de 32 ms; mediana de las ventanas con voz.
+ *  Sirve para distinguir una voz grave de una aguda (Javier / Ana). */
+export function pitchOf(blocks) {
+  const total = blocks.reduce((n, b) => n + b.length, 0);
+  const x = new Float32Array(total);
+  let o = 0;
+  for (const b of blocks) { x.set(b, o); o += b.length; }
+  const N = 512, HOP = 256;
+  const minLag = Math.floor(RATE / 350), maxLag = Math.ceil(RATE / 70);
+  // Solo las ventanas con más energía (la voz, no las pausas)
+  const frames = [];
+  for (let i = 0; i + N + maxLag < x.length; i += HOP) {
+    let e = 0;
+    for (let j = 0; j < N; j++) e += x[i + j] * x[i + j];
+    frames.push([i, e]);
+  }
+  if (!frames.length) return null;
+  const sorted = frames.map((f) => f[1]).sort((a, b) => a - b);
+  const gate = sorted[Math.floor(sorted.length * 0.5)];
+  const f0s = [];
+  for (const [i, e0] of frames) {
+    if (e0 < gate || e0 < 1e-4) continue;
+    const r = new Float32Array(maxLag + 1);
+    let best = 0;
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let num = 0, e1 = 0;
+      for (let j = 0; j < N; j++) { num += x[i + j] * x[i + j + lag]; e1 += x[i + j + lag] * x[i + j + lag]; }
+      r[lag] = num / Math.sqrt(e0 * e1 + 1e-12);
+      if (r[lag] > best) best = r[lag];
+    }
+    if (best < 0.6) continue;
+    // El primer pico cerca del máximo (evita confundir el tono con su octava baja)
+    let lag = minLag;
+    while (lag < maxLag && !(r[lag] >= best * 0.9 && r[lag] >= r[lag - 1] && r[lag] >= r[lag + 1])) lag++;
+    f0s.push(RATE / lag);
+  }
+  if (f0s.length < 3) return null;
+  f0s.sort((a, b) => a - b);
+  return Math.round(f0s[Math.floor(f0s.length / 2)]);
 }

@@ -6,7 +6,17 @@
 set -uo pipefail
 
 PROD_DIR="${CLAUDIO_PROD_DIR:-$HOME/Services/claudio-prod}"
+STATUS="${CLAUDIO_HOME:-$HOME/.claudio}/deploy-status.json"  # lo lee el servidor: si falló, Claudio lo avisa en pantalla
 stamp() { date '+%Y-%m-%d %H:%M:%S'; }
+# write_status ok|fail commit [salida]: JSON con el resultado del último despliegue
+write_status() {
+  /usr/bin/python3 - "$STATUS" "$1" "$2" "${3:-}" <<'PY'
+import json, sys, datetime
+path, result, commit, out = sys.argv[1:5]
+tail = "\n".join(out.strip().splitlines()[-12:])[-1500:]
+json.dump({"ok": result == "ok", "commit": commit, "at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"), "output": tail}, open(path, "w"), ensure_ascii=False)
+PY
+}
 
 cd "$PROD_DIR" 2>/dev/null || { echo "$(stamp) no existe $PROD_DIR"; exit 1; }
 git fetch --quiet origin main 2>/dev/null || exit 0   # sin red: ya se intentará en el siguiente minuto
@@ -26,9 +36,15 @@ tmp="$(mktemp -t claudio-deploy)"
 git show origin/main:scripts/deploy.sh > "$tmp"
 chmod +x "$tmp"
 # deploy.sh busca install-agent.sh junto a sí mismo: se le pasa la carpeta de scripts de prod.
-if CLAUDIO_SCRIPTS_DIR="$PROD_DIR/scripts" "$tmp"; then
+out="$(mktemp -t claudio-deploy-out)"
+if CLAUDIO_SCRIPTS_DIR="$PROD_DIR/scripts" "$tmp" > "$out" 2>&1; then
+  cat "$out"
   echo "$(stamp) ✓ desplegado $target"
+  write_status ok "$target" "$(cat "$out")"
 else
+  cat "$out"
   echo "$(stamp) ✗ falló el despliegue de $target (prod puede haber quedado a medias: revisar)"
+  write_status fail "$target" "$(cat "$out")"
 fi
+rm -f "$out"
 rm -f "$tmp"

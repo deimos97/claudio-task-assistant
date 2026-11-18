@@ -4,13 +4,14 @@
 import { db } from './db.ts';
 import { localNow } from './config.ts';
 import { publish } from './bus.ts';
-import { checkCategory, InputError, optText } from './items.ts';
+import { categoryWhere, checkCategory, checkOwner, checkPriority, InputError, optText } from './items.ts';
 
 export type Routine = {
   id: number; title: string; category: string | null;
   asset_id: number | null; counter_id: number | null;
   every_days: number | null; every_amount: number | null;
   last_done_at: string | null; last_done_value: number | null; notes: string | null;
+  owner: 'javier' | 'ana' | null; priority: number;
 };
 export type RoutineStatus = Routine & {
   asset: string | null; unit: string | null;
@@ -18,9 +19,11 @@ export type RoutineStatus = Routine & {
   due_value: number | null;   // valor del contador en que toca
   current: number | null;     // valor estimado hoy
   detail: string;             // "cada 5 días · última vez 15-11"
+  progress: number | null;    // parte del ciclo transcurrida (0 recién hecha, 1 toca, >1 pasada)
+  cycle: string | null;       // "día 3 de 5" o "≈ 12.300 / 15.000 km"
 };
 
-const COLS = 'id, title, category, asset_id, counter_id, every_days, every_amount, last_done_at, last_done_value, notes';
+const COLS = 'id, title, category, asset_id, counter_id, every_days, every_amount, last_done_at, last_done_value, notes, owner, priority';
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const fmt = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
 
@@ -129,6 +132,20 @@ export function status(r: Routine): RoutineStatus {
   }
   const dueAt = dates.length ? dates.sort()[0] : null;
 
+  // En qué punto del ciclo estamos: por tiempo, días desde la última vez; por uso, unidades
+  const prog: number[] = [];
+  let cycle: string | null = null;
+  if (r.every_days && r.last_done_at) {
+    const elapsed = Math.max(0, toDay(today) - toDay(r.last_done_at));
+    prog.push(elapsed / r.every_days);
+    cycle = elapsed === 0 ? 'hecho hoy' : `día ${elapsed} de ${r.every_days}`;
+  }
+  if (r.every_amount && current !== null && r.last_done_value !== null) {
+    prog.push(Math.max(0, current - r.last_done_value) / r.every_amount);
+    if (dueValue !== null) cycle = [cycle, `≈ ${fmt.format(Math.round(current))} / ${fmt.format(dueValue)} ${unit}`].filter(Boolean).join(' · ');
+  }
+  const progress = prog.length ? Math.max(...prog) : r.last_done_at ? null : 1;
+
   const every = [
     r.every_days ? `cada ${r.every_days === 1 ? 'día' : `${r.every_days} días`}` : '',
     r.every_amount && unit ? `${r.every_days ? 'o ' : 'cada '}${fmt.format(r.every_amount)} ${unit}` : '',
@@ -137,12 +154,12 @@ export function status(r: Routine): RoutineStatus {
   if (r.last_done_at) parts.push(`última vez ${r.last_done_at.slice(8, 10)}-${r.last_done_at.slice(5, 7)}`);
   else parts.push('sin hacer aún');
   if (dueValue !== null && current !== null) parts.push(`≈ ${fmt.format(Math.round(current))} / ${fmt.format(dueValue)} ${unit}`);
-  return { ...r, asset, unit, due_at: dueAt, due_value: dueValue, current, detail: parts.join(' · ') };
+  return { ...r, asset, unit, due_at: dueAt, due_value: dueValue, current, detail: parts.join(' · '), progress, cycle };
 }
 
 export function listRoutines(category?: string): RoutineStatus[] {
   const rows = (category
-    ? db.prepare(`SELECT ${COLS} FROM routines WHERE category = ? ORDER BY id`).all(category.toLowerCase())
+    ? db.prepare(`SELECT ${COLS} FROM routines WHERE ${categoryWhere()} ORDER BY id`).all(checkCategory(category), checkCategory(category))
     : db.prepare(`SELECT ${COLS} FROM routines ORDER BY id`).all()) as Routine[];
   return rows.map(status).sort((a, b) => (a.due_at ?? '9999').localeCompare(b.due_at ?? '9999'));
 }
@@ -155,10 +172,11 @@ export function createRoutine(input: Record<string, unknown>): RoutineStatus {
   // Por uso hace falta contador (se crea si no existe); por tiempo, el activo es opcional.
   const counter = everyAmount || (input.asset && input.unit) ? ensureCounter(input.asset, input.unit, input.category) : null;
   const lastValue = checkNum(input.last_done_value, 'last_done_value');
-  const r = db.prepare(`INSERT INTO routines (title, category, asset_id, counter_id, every_days, every_amount, last_done_at, last_done_value, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+  const r = db.prepare(`INSERT INTO routines (title, category, asset_id, counter_id, every_days, every_amount, last_done_at, last_done_value, notes, owner, priority)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     input.title.trim().slice(0, 200), checkCategory(input.category), counter?.asset_id ?? null, counter?.id ?? null,
     everyDays === null ? null : Math.round(everyDays), everyAmount, checkDay(input.last_done_at, 'last_done_at'), lastValue, optText(input.notes),
+    checkOwner(input.owner), checkPriority(input.priority),
   );
   publish('items');
   return status(getRoutine(Number(r.lastInsertRowid)));
@@ -177,6 +195,8 @@ export function updateRoutine(input: Record<string, unknown>): RoutineStatus {
   if ('last_done_at' in input) next.last_done_at = checkDay(input.last_done_at, 'last_done_at');
   if ('last_done_value' in input) next.last_done_value = checkNum(input.last_done_value, 'last_done_value');
   if ('notes' in input) next.notes = optText(input.notes);
+  if ('owner' in input) next.owner = checkOwner(input.owner);
+  if ('priority' in input) next.priority = checkPriority(input.priority);
   if (input.asset && input.unit) {
     const c = ensureCounter(input.asset, input.unit, next.category);
     next.asset_id = c.asset_id; next.counter_id = c.id;
@@ -184,9 +204,9 @@ export function updateRoutine(input: Record<string, unknown>): RoutineStatus {
   if (!next.every_days && !next.every_amount) throw new InputError('la rutina necesita every_days o every_amount');
   if (next.every_amount && !next.counter_id) throw new InputError('every_amount necesita asset y unit');
   db.prepare(`UPDATE routines SET title = ?, category = ?, asset_id = ?, counter_id = ?, every_days = ?, every_amount = ?,
-    last_done_at = ?, last_done_value = ?, notes = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`).run(
+    last_done_at = ?, last_done_value = ?, notes = ?, owner = ?, priority = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`).run(
     next.title, next.category, next.asset_id, next.counter_id, next.every_days, next.every_amount,
-    next.last_done_at, next.last_done_value, next.notes, cur.id,
+    next.last_done_at, next.last_done_value, next.notes, next.owner, next.priority, cur.id,
   );
   publish('items');
   return status(getRoutine(cur.id));
