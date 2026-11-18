@@ -58,7 +58,7 @@ let pressTimer = null;
 let happyTimer = null;
 face.addEventListener('pointerdown', (ev) => {
   eyes.lookAt(ev.clientX, ev.clientY);
-  pressTimer = setTimeout(() => { $('debug').hidden = !$('debug').hidden; pressTimer = null; }, 800);
+  pressTimer = setTimeout(() => { $('debug').hidden = !$('debug').hidden; if (!$('debug').hidden) showMetrics(); pressTimer = null; }, 800);
 });
 face.addEventListener('pointermove', (ev) => eyes.lookAt(ev.clientX, ev.clientY));
 face.addEventListener('pointerup', () => {
@@ -84,6 +84,34 @@ face.addEventListener('pointerup', () => {
 });
 // Las miradas también siguen al dedo en el resto de la pantalla
 document.addEventListener('pointerdown', (ev) => { if (!face.contains(ev.target)) eyes.lookAt(ev.clientX, ev.clientY); });
+
+// Medidas de la pantalla (se ven con la pulsación larga): para depurar huecos en la PWA
+function showMetrics() {
+  let el = $('metrics');
+  if (!el) {
+    el = document.createElement('pre');
+    el.id = 'metrics';
+    el.className = 'metrics';
+    $('debug').prepend(el);
+  }
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;visibility:hidden;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);height:100lvh;width:100svh';
+  document.body.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const m = {
+    pantalla: `${screen.width}×${screen.height}`,
+    inner: `${innerWidth}×${innerHeight}`,
+    visual: visualViewport ? `${Math.round(visualViewport.height)} (top ${Math.round(visualViewport.offsetTop)})` : '-',
+    lvh: probe.offsetHeight, svh: probe.offsetWidth,
+    body: Math.round(document.body.getBoundingClientRect().height),
+    pieAbajo: Math.round(document.querySelector('.foot').getBoundingClientRect().bottom),
+    safe: `${cs.paddingTop} / ${cs.paddingBottom}`,
+    standalone: navigator.standalone ?? matchMedia('(display-mode: standalone)').matches,
+    scrollY,
+  };
+  probe.remove();
+  el.textContent = Object.entries(m).map(([k, v]) => `${k}: ${v}`).join('\n');
+}
 
 $('debug').addEventListener('click', (ev) => {
   const s = ev.target?.dataset?.state;

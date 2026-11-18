@@ -43,4 +43,4 @@ Debajo del título, en gris: la categoría (solo en "Próximo"; las vistas ya ag
 
 ## Monkey noises
 
-- **Hueco vacío bajo el pie en la PWA del iPhone** (2026-11-18): con `height: 100%` la altura calculada no siempre coincide con la pantalla, sobre todo tras abrir y cerrar el teclado, que deja la página desplazada. Arreglo: `body { position: fixed; inset: 0 }` y `scrollTo(0, 0)` al cerrar el teclado. Sin comprobar aún en el iPhone real.
+- **Hueco vacío bajo el pie en la PWA del iPhone** (2026-11-18): con `height: 100%` la altura calculada no siempre coincide con la pantalla, sobre todo tras abrir y cerrar el teclado, que deja la página desplazada. Arreglo: `body { position: fixed; inset: 0 }` y `scrollTo(0, 0)` al cerrar el teclado. Seguía sin llenar en el iPhone: ahora la altura es `100lvh` (la pantalla entera; en la PWA no hay barras). Para depurar: pulsación larga sobre la cara → medidas de la pantalla (`inner`, `visual`, `lvh`, `svh`, `body`, `pieAbajo`, zonas seguras, `standalone`).

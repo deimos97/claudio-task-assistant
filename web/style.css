@@ -33,8 +33,11 @@ html, body {
    tras abrir y cerrar el teclado) y quedaba un hueco vacío bajo el pie. */
 body {
   position: fixed;
-  inset: 0;
-  height: auto;
+  top: 0; left: 0; right: 0;
+  /* En la PWA no hay barras del navegador: la altura buena es la "grande" (lvh), la
+     pantalla entera. 100vh de respaldo para navegadores viejos. */
+  height: 100vh;
+  height: 100lvh;
   display: flex;
   flex-direction: column;
   padding: calc(env(safe-area-inset-top) + 6px) 16px 0;
@@ -320,3 +323,14 @@ body.chat-open .chat {
 .mic.on { opacity: 1; color: var(--accent); border-color: var(--accent); }
 .mic.active { background: var(--accent); color: #1f1410; animation: mic-pulse 1.2s ease-in-out infinite; }
 @keyframes mic-pulse { 50% { box-shadow: 0 0 0 6px rgba(217, 119, 87, .25); } }
+
+.metrics {
+  flex-basis: 100%;
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, .75);
+  border-radius: 10px;
+  color: var(--text);
+  font: 12px/1.35 ui-monospace, Menlo, monospace;
+  white-space: pre;
+}
