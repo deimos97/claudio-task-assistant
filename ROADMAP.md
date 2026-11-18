@@ -79,7 +79,7 @@
 - [x] Los ojos te siguen con la cámara frontal, por movimiento (2026-11-18). `web/camera.js`
 - [ ] Probar en el iPhone: cámara + micro a la vez (iOS a veces corta un `getUserMedia` al abrir otro), avisos y anillo de las rutinas
 - [x] Tras un cambio, el panel enseña solo lo cambiado, resaltado, 12 s (2026-11-18)
-- [ ] Calibrar el tono con vuestras voces: el 2026-11-18 una frase de Javier ("Ahí está") salió como Ana
+- [ ] Calibrar el tono con más frases de los dos (2026-11-18: la primera prueba real, Javier y luego Ana, la distinguió bien)
 - [ ] Si el seguimiento por movimiento se queda corto: detección de caras (p. ej. MediaPipe en local)
 
 ## Fase 4 — Auto-mejora
