@@ -26,7 +26,7 @@
 
 - [x] Base de datos (SQLite, `node:sqlite`) + migraciones versionadas + copia al arrancar y cada 24 h, 14 guardadas (2026-11-18)
 - [x] Chat de texto con Haiku (`claude-haiku-5-5`, esfuerzo bajo) y herramientas: listar, crear, cambiar, completar y borrar eventos/tareas (2026-11-18; probado con una API simulada)
-- [ ] Probar el chat con la API real (falta la clave en `~/.claudio/anthropic-key`)
+- [x] Probado con la API real en dev: crear, mover, completar y borrar; responde en el idioma de la pregunta y pide la hora si falta; ~1–2,5 s por respuesta (2026-11-18)
 - [x] Entrada por teclado: botón pequeño en móvil que abre un panel; en escritorio, columna de chat siempre visible (2026-11-18)
 - [ ] Desplegar fase 1 a prod (PR `dev → main`)
 - [ ] Notas y listas (compra, ideas…) que Claudio mantiene
