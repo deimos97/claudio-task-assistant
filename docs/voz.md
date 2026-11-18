@@ -12,7 +12,7 @@ micro del iPhone ─► web/voice.js: remuestreo a 16 kHz + VAD por energía ─
                               ─ "Claudio, haz X" → X va directo al chat
    ─► respuesta en streaming (POST /api/chat con Accept: application/x-ndjson)
    ─► cada frase, en cuanto se cierra (". ", "? "…) ─► POST /api/tts {text, context}
-      ─► español: `say` Jorge (AAC) · inglés: Kokoro Heart (WAV) ─► altavoz, en orden y sin hueco
+      ─► español: servicio de voz con Jorge/Mónica ya cargados (WAV, ~0,05 s; si no responde, `say`) · inglés: Kokoro Heart (WAV) ─► altavoz, en orden y sin hueco
       (sordo desde la primera frase hasta 350 ms después de la última)
    ─► si la respuesta acaba en "?", pitido y escucha la contestación sin wake word
 ```
@@ -28,7 +28,8 @@ micro del iPhone ─► web/voice.js: remuestreo a 16 kHz + VAD por energía ─
 | whisper.cpp (`brew install whisper-cpp`) | `whisper-server`, LaunchAgent `com.deimos97.claudio.whisper`, log `~/Library/Logs/claudio-whisper.log` |
 | Modelos | `~/.claudio/models/ggml-large-v3-turbo-q5_0.bin` (548 MB) y `ggml-silero-v5.1.2.bin` (VAD) |
 | Instalar / reinstalar | `scripts/install-whisper.sh` (descarga lo que falte) |
-| Voz en español | `say -v "Jorge (Enhanced)"` (descargada en Ajustes → Accesibilidad → Contenido leído → Gestionar voces). Cambiar con `CLAUDIO_VOICE_ES` |
+| Voz en español | Jorge y Mónica mejoradas (descargadas en Ajustes → Accesibilidad → Contenido leído → Gestionar voces). Cambiar con `CLAUDIO_VOICE_ES` / `CLAUDIO_VOICE_ES_ANA` |
+| Servicio de voz (macOS) | `scripts/voice-server.swift` (AVSpeechSynthesizer, deja las voces cargadas), compilado en `~/.claudio/bin/claudio-voice`, LaunchAgent `com.deimos97.claudio.voice` en 127.0.0.1:3122, log `~/Library/Logs/claudio-voice.log`. Instalar/reinstalar (compila con `swiftc`): `scripts/install-voice.sh`. Si no responde en 5 s, `say` |
 | Voz en inglés | Kokoro `af_heart`: `scripts/kokoro-server.py` como LaunchAgent `com.deimos97.claudio.kokoro` en 127.0.0.1:3121, venv `~/.claudio/tts-venv`, modelos `~/.claudio/models/tts/`, log `~/Library/Logs/claudio-kokoro.log`. Instalar/reinstalar: `scripts/install-tts.sh`. Cambiar con `CLAUDIO_VOICE_EN`. Si no responde, `say` Samantha (`CLAUDIO_VOICE_EN_FALLBACK`) |
 
 Dev y prod usan el mismo whisper. Ajustes en `server/voice.ts`; los del VAD del navegador, arriba de `web/voice.js`.
@@ -49,7 +50,7 @@ Elegidas el 2026-11-18 (provisionales): **Jorge (mejorada)** en español y **Kok
 
 Respuesta por frases (2026-11-18, "¿Qué tiempo hará mañana?" en dos frases): primera frase escrita a 0,72 s y sonando a **1,65 s** de mandar la pregunta, frente a 1,87 s antes (respuesta entera 0,96 s + audio de todo 0,9 s). Con respuestas largas se gana más. Fin de frase del VAD: de 700 a **500 ms** (`END_MS` en `web/voice.js`; subirlo si corta a media frase). En total, ~0,4 s menos.
 
-Lo que queda: whisper ~0,85 s y `say` ~0,7 s por frase, casi todo arrancar el proceso y cargar la voz (en WAV tarda lo mismo que en AAC). Un proceso de voz que se quede abierto, o Piper (0,1–0,4 s), lo bajaría.
+`say` tardaba ~0,7 s por frase fuese cual fuese su largo ("Sí." 0,71 s; una frase de 20 palabras 0,69 s): era arrancar y cargar la voz. Con el servicio de voz, **0,03–0,09 s** por frase, mismo audio (misma duración y volumen que `say`). Primera frase sonando a **~0,95–1,0 s** de mandar la pregunta (antes 1,87 s). Lo que más tarda ahora es whisper (~0,85 s) y Haiku.
 
 - whisper con idioma fijo `es`: **~0,85 s** por frase de 2–3 s; con `auto`, ~1,7 s. Con `es` transcribe bien el inglés, así que se deja fijo.
 - De fin de frase a empezar a hablar: ~3,3 s en español (whisper 0,9 + Haiku 1,8 + Jorge 0,6–0,8) y ~4 s en inglés (Kokoro ~1,3 s).
@@ -61,6 +62,8 @@ Lo que queda: whisper ~0,85 s y `say` ~0,7 s por frase, casi todo arrancar el pr
 
 - **Safari no reproduce audio que pasa por el service worker** (pide trozos con `Range`): `web/sw.js` deja pasar directos el audio, el vídeo y todo lo que esté bajo `/_`.
 
+- **El servicio de voz se compila en el Mac** (`swiftc`, viene con las herramientas de línea de comandos de Xcode). Tras cambiar `voice-server.swift`, `scripts/install-voice.sh` otra vez. La primera frase de cada voz tarda ~0,4 s en cargarla: el servicio las calienta al arrancar.
+- **El audio de la voz va en WAV** (~3× lo que ocupaba en AAC, ~150 KB por frase larga): en la red de casa no se nota.
 - **Frases para la voz:** las de menos de 12 caracteres ("Vale.") se juntan con la siguiente para que no suene a trompicones. El idioma se decide con todo lo dicho hasta esa frase (`context`), no con la frase sola: "Sure." sola parecería español.
 - **La wake word no es un modelo dedicado:** se transcribe cada frase que supera el ruido de fondo y se mira si empieza por "Claudio". Con tele o conversación, whisper trabaja en continuo (local, sin coste). Si hay falsos positivos o carga, cambiar por openWakeWord/Porcupine solo esa pieza.
 - **iOS necesita un toque para el audio:** tras una recarga (cada despliegue), si `AudioContext` no arranca solo, Claudio dice "Toca la pantalla para despertar mis oídos" y el primer toque lo activa. La auto-recarga no ocurre mientras está escuchando una orden o hablando.

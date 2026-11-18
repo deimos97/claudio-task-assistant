@@ -40,7 +40,7 @@ server/weather.ts      tiempo de Open-Meteo (caché 15 min)
 server/nudges.ts       avisos que esperan en pantalla a que se toquen (resumen, rutinas, km, citas pasadas)
 server/chat.ts         chat con Claude Haiku (claude-haiku-5-5) y sus herramientas
 server/bus.ts          avisos en vivo (SSE) a todas las pantallas
-server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, `say` Jorge (es) y Kokoro Heart (en, 127.0.0.1:3121)
+server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, Jorge/Mónica con el servicio de voz (127.0.0.1:3122, `say` de respaldo) y Kokoro Heart (en, 127.0.0.1:3121)
 web/index.html         página única: ojos y avisos arriba, panel abajo, pie (tiempo, fecha, conexión, micro, cámara, menú)
 web/admin.html/.js/.css  gestión a mano: agenda, listas y rutinas
 web/camera.js          ojos que te siguen: detector de caras local (MediaPipe BlazeFace) con el movimiento de respaldo; recuadro de depuración
@@ -56,6 +56,7 @@ scripts/auto-deploy.sh      cada minuto: si origin/main cambió, ejecuta deploy.
 scripts/install-whisper.sh  instala whisper.cpp + modelos y su LaunchAgent (común a dev y prod)
 scripts/install-tts.sh      instala Kokoro (voz inglesa) + modelos y su LaunchAgent (común a dev y prod)
 scripts/kokoro-server.py    servidor HTTP mínimo de Kokoro (127.0.0.1:3121)
+scripts/voice-server.swift  voz de macOS con Jorge y Mónica ya cargados (127.0.0.1:3122); scripts/install-voice.sh lo compila e instala
 ```
 
 ## Comandos
@@ -78,6 +79,7 @@ Servicios compartidos por dev y prod (también LaunchAgents, solo en 127.0.0.1):
 |---|---|---|---|---|
 | Reconocimiento de voz (whisper.cpp) | `com.deimos97.claudio.whisper` | 3120 | `scripts/install-whisper.sh` | `~/Library/Logs/claudio-whisper.log` |
 | Voz inglesa (Kokoro) | `com.deimos97.claudio.kokoro` | 3121 | `scripts/install-tts.sh` | `~/Library/Logs/claudio-kokoro.log` |
+| Voz española (macOS, voces cargadas) | `com.deimos97.claudio.voice` | 3122 | `scripts/install-voice.sh` | `~/Library/Logs/claudio-voice.log` |
 | Despliegue automático (cada minuto) | `com.deimos97.claudio.autodeploy` | — | `scripts/install-autodeploy.sh` | `~/Library/Logs/claudio-deploy.log` |
 
 Datos fuera del repo, en `~/.claudio/`: `dev/` y `prod/` (BD y copias), `models/`, `tts-venv/`, `anthropic-key` (600).

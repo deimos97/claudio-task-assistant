@@ -1,4 +1,5 @@
-// Voz: reconocimiento (whisper.cpp en el Mac mini) y síntesis (`say` de macOS).
+// Voz: reconocimiento (whisper.cpp en el Mac mini) y síntesis (voces de macOS: servicio
+// propio con la voz ya cargada en :3122; si no responde, `say`).
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -18,6 +19,9 @@ const SAY_VOICE_ES = PEOPLE.javier.voice;
 const SAY_VOICE_EN = process.env.CLAUDIO_VOICE_EN_FALLBACK ?? 'Samantha';
 const KOKORO_URL = process.env.CLAUDIO_KOKORO_URL ?? 'http://127.0.0.1:3121/tts';
 const KOKORO_VOICE_EN = process.env.CLAUDIO_VOICE_EN ?? 'af_heart';
+// Servicio de voz de macOS que deja las voces cargadas (scripts/voice-server.swift): ~0,05 s
+// por frase frente a ~0,7 s de `say`, que arranca y carga la voz cada vez.
+const MAC_VOICE_URL = process.env.CLAUDIO_MAC_VOICE_URL ?? 'http://127.0.0.1:3122/';
 
 export class VoiceError extends Error {}
 
@@ -67,7 +71,24 @@ export async function speak(text: string, who: Who | null = null, context?: stri
       console.error('voz: Kokoro no responde, uso say', e instanceof Error ? e.message : e);
     }
   }
-  return { audio: await say(clean, lang === 'en' ? SAY_VOICE_EN : who ? PEOPLE[who].voice : SAY_VOICE_ES), type: 'audio/mp4' };
+  const voice = lang === 'en' ? SAY_VOICE_EN : who ? PEOPLE[who].voice : SAY_VOICE_ES;
+  try {
+    return { audio: await macVoice(clean, voice), type: 'audio/wav' };
+  } catch (e) {
+    console.error('voz: el servicio de voz no responde, uso say', e instanceof Error ? e.message : e);
+  }
+  return { audio: await say(clean, voice), type: 'audio/mp4' };
+}
+
+async function macVoice(text: string, voice: string): Promise<Buffer> {
+  const res = await fetch(MAC_VOICE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, voice }),
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!res.ok) throw new Error(`respondió ${res.status}: ${await res.text().catch(() => '')}`);
+  return Buffer.from(await res.arrayBuffer());
 }
 
 async function kokoro(text: string, voice: string, lang: string): Promise<Buffer> {

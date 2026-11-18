@@ -73,7 +73,7 @@
 ## Fase 3 — Proactividad (y mejoras de voz)
 
 - [x] Responder antes: Haiku en streaming, cada frase se dice en cuanto se escribe, y fin de frase a 500 ms (2026-11-18). ~0,4 s menos; primera frase sonando a ~1,65 s de acabar whisper
-- [ ] Voz más rápida: `say` tarda ~0,7 s por frase en arrancar; un proceso de voz que se quede abierto o Piper
+- [x] Voz más rápida: servicio propio con Jorge y Mónica ya cargados (0,05 s por frase en vez de 0,7 s con `say`). Primera frase sonando a ~1 s de mandar la pregunta (2026-11-18)
 - [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase. Hoy no hace falta: detecta bien. Mirarlo si hay falsos «Claudio» con la tele, si tarda en reaccionar o si whisper carga el Mac
 - [x] Avisos en pantalla en vez de hablar solo (2026-11-18): rutina que toca ("¿Hecho? Cambiar la arena"), contador con lectura vieja ("Coche: ¿cuántos km?"), cita pasada sin marcar ("¿Lo tuviste?"). Al tocarlo, Claudio pregunta y apunta la respuesta. `server/nudges.ts`
 - [x] Resumen de la mañana como aviso (6:00–12:30): tiempo, lo de hoy y lo que no hay que olvidar, más la vista de hoy (2026-11-18)
@@ -108,6 +108,7 @@
 
 | Fecha | Decisión | Por qué |
 |---|---|---|
+| 2026-11-18 | Voz: servicio en Swift con las voces de macOS ya cargadas, `say` de respaldo | Mismo Jorge, 0,7 s → 0,05 s por frase, sin dependencias ni red |
 | 2026-11-18 | Detector de caras con MediaPipe en el iPhone (WebAssembly), servido desde el Mac mini | El iPhone va sobrado, no necesita red ni CDN y no manda imágenes a ningún sitio |
 | 2026-11-18 | Detector propio de «Claudio»: no por ahora | La transcripción con whisper ya lo detecta bien; se revisa si aparecen falsos positivos o el Mac va cargado |
 | 2026-11-18 | Tras cada cambio, la pantalla enseña sola dónde ha quedado (resaltado) y se quita a los 12 s | Javier quiere ver lo que se ha añadido sin pedirlo |
