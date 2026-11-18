@@ -15,8 +15,9 @@
 - [x] Primer merge `dev → main` (PR #1) y `scripts/deploy.sh` → prod en :3110 (2026-11-18, dc3dad8)
 - [x] Config de nginx (`deploy/nginx/claudio.conf`) y guía `docs/servidor-pi.md` para servir por dominio (2026-11-18)
 - [x] HTTPS por dominio: `https://claudio.hotwheelsandbids.com` (prod) y `https://claudio-dev.hotwheelsandbids.com` (dev); certificado Let's Encrypt válido hasta 2027-02-16, HTTP→HTTPS, red local sin login (2026-11-18)
-- [ ] Pi-hole: registro local `claudio-dev.hotwheelsandbids.com` → `192.168.0.5` (falta; sin él, en casa dev va por la IP pública)
-- [ ] Comprobar desde fuera de casa (datos móviles) que pide el login del portal y que `sudo certbot renew --dry-run` pasa
+- [x] Pi-hole: registro local `claudio-dev.hotwheelsandbids.com` → `192.168.0.5` (2026-11-18)
+- [x] Comprobado desde fuera de casa (datos móviles): pide el login del portal y después abre Claudio, prod y dev (2026-11-18)
+- [ ] `sudo certbot renew --dry-run` en la Raspberry para confirmar la renovación automática
 - [x] PWA con los ojos animados: idle/parpadeo, mirar alrededor, escuchando, pensando, hablando, contento, adormilado, dormido (noche 23:00–07:30) (2026-11-17)
 - [ ] Probar en el iPhone 11 real (rendimiento de la animación, wake lock, instalación en pantalla de inicio) — Javier, con `docs/iphone-kiosco.md`
 - [ ] iPhone en modo kiosco: pantalla de inicio, Acceso Guiado, bloqueo "Nunca", carga optimizada / enchufe inteligente — guía en `docs/iphone-kiosco.md`
