@@ -45,7 +45,7 @@
 - [x] Interfaz: fuera la barra de arriba; tiempo, fecha, punto de conexión, micro y teclado en un pie de una línea; ojos al 36 % en reposo (2026-11-18)
 - [x] Panel dinámico: Claudio "te enseña" lo que pides con la herramienta `show` (una lista, una categoría, lo de N días…): los ojos encogen al 13 %, el panel sube como una tarjeta y lo miran; vuelve a "Próximo" tras 60 s sin tocarlo, al tocar los ojos o la ×, o con una respuesta que no enseña nada (2026-11-18)
 - [x] Pie y altura comprobados en el iPhone real: la PWA solo enseña `100svh` (848 de 896) (2026-11-18)
-- [ ] Probar el panel dinámico en el iPhone real
+- [ ] Probar el panel dinámico en el iPhone real (también lo que se enseña solo tras un cambio): ver la tarea de la fase 3
 - [x] Sincronización en vivo entre pantallas (SSE, `/api/stream`): agenda y chat aparecen al momento en todas (2026-11-18)
 - [x] Diseño de escritorio básico: ojos + lista a la izquierda, chat a la derecha (≥ 900 px con ratón) (2026-11-18)
 - [x] Eventos y tareas propios de Claudio en "Próximo": vencidas en rojo, tocar el círculo marca una tarea como hecha (2026-11-18)
@@ -56,7 +56,7 @@
 - [x] Prioridad 0–3 en tareas y rutinas: 0 algún día (gris) · 1 normal (por defecto) · 2 importante (!) · 3 crítico (‼ en rojo) (2026-11-18)
 - [x] Dueño: Javier, Ana o los dos (migración 004). Lo de la casa, de los dos; "recuérdame…" de quien habla; "recuérdale a Ana…" de Ana; si Haiku duda, pregunta. Probado con la API real (2026-11-18)
 - [x] Quién habla: por voz, el tono medio de la frase (autocorrelación en el navegador; corte 150 Hz ±10, en la duda el dueño del dispositivo); por teclado, el dueño del dispositivo (menú de la pulsación larga) (2026-11-18)
-- [ ] Calibrar el corte de tono con las voces reales de Javier y Ana (las medidas de la pulsación larga enseñan el tono de la última frase)
+- [ ] Calibrar el corte de tono con más frases de Javier y Ana (las medidas del menú enseñan el tono de la última frase). Primera prueba real (2026-11-18): Javier y luego Ana, bien distinguidos
 - [x] Voz según quién habla: Jorge a Javier (y si no se sabe), Mónica (mejorada) a Ana (2026-11-18)
 - [x] Plazos con antelación ("la limpieza dental antes del 1 de diciembre, pero hay que pedirla con 1–2 semanas"): la tarea es la gestión, con `at` = último día para hacerla y `start_at` = desde cuándo avisar; el límite real va en las notas. Antes de `start_at` no sale en pantalla; después enseña "quedan N días". Si el margen ya pasó, Claudio lo dice y sube la prioridad (migración 005) (2026-11-18)
 - [x] Pie: fecha corta sin año ("Mié - 18-11") y círculo de dispositivo: K (kiosco, compartido) → J → A (2026-11-18)
@@ -77,9 +77,8 @@
 - [x] Resumen de la mañana como aviso (6:00–12:30): tiempo, lo de hoy y lo que no hay que olvidar, más la vista de hoy (2026-11-18)
 - [x] Papel por dispositivo (2026-11-18): el kiosco escucha «Claudio», habla y duerme de noche; el móvil de Javier o Ana tiene micro de pulsar para hablar y no duerme. Se elige en el menú del pie
 - [x] Los ojos te siguen con la cámara frontal, por movimiento (2026-11-18). `web/camera.js`
-- [ ] Probar en el iPhone: cámara + micro a la vez (iOS a veces corta un `getUserMedia` al abrir otro), avisos y anillo de las rutinas
+- [ ] Probar en el iPhone: cámara + micro a la vez (iOS a veces corta un `getUserMedia` al abrir otro), avisos, anillo de las rutinas, menú y perfil Javier/Ana en el móvil (pulsar para hablar)
 - [x] Tras un cambio, el panel enseña solo lo cambiado, resaltado, 12 s (2026-11-18)
-- [ ] Calibrar el tono con más frases de los dos (2026-11-18: la primera prueba real, Javier y luego Ana, la distinguió bien)
 - [ ] Si el seguimiento por movimiento se queda corto: detección de caras (p. ej. MediaPipe en local)
 
 ## Fase 4 — Auto-mejora
