@@ -4,8 +4,8 @@ Lee esto si vas a: montar o reconfigurar el iPhone del escritorio, o depurar por
 
 ## 1. Acceso al servidor
 
-- **En casa, sin HTTPS (vale para fase 0):** `http://192.168.0.215:3110` (prod) o `:3111` (dev). La IP es la del Mac mini en la Wi‑Fi; si cambia, mírala con `ipconfig getifaddr en0`. Conviene reservarla en el router.
-- **Con HTTPS (necesario para micro/cámara, fase 3):** vía Tailscale, ver sección 4.
+- **Normal (HTTPS):** `https://claudio.hotwheelsandbids.com` (prod) y `https://claudio-dev.hotwheelsandbids.com` (dev). En casa entra sin login; fuera pide el login del home-portal. Montaje en `docs/servidor-pi.md`.
+- **De emergencia, sin HTTPS:** `http://192.168.0.215:3110` (prod) o `:3111` (dev), directo al Mac mini. Sin micro ni cámara.
 
 ## 2. Instalar la PWA
 
@@ -22,19 +22,11 @@ Lee esto si vas a: montar o reconfigurar el iPhone del escritorio, o depurar por
 5. **Notificaciones:** activa *No molestar* permanente para que no tapen la cara.
 6. Brillo: el modo noche (23:00–07:30) atenúa la página, pero el brillo de la pantalla lo pone iOS; bájalo a mano si molesta de noche.
 
-## 4. HTTPS con Tailscale
+## 4. iCloud Private Relay
 
-1. Instala **Tailscale** en el Mac mini (App Store o tailscale.com) y en el iPhone (App Store); inicia sesión con la misma cuenta en ambos.
-2. En el panel de Tailscale activa **MagicDNS** y **HTTPS Certificates** (DNS → HTTPS Certificates).
-3. En el Mac mini:
-   ```bash
-   tailscale serve --bg --https=443 http://localhost:3110
-   tailscale serve --bg --https=8443 http://localhost:3111
-   ```
-4. URL resultante: `https://<nombre-del-mac>.<tailnet>.ts.net` (prod) y `:8443` (dev). Solo accesible desde dispositivos de tu tailnet.
-5. Vuelve a instalar la PWA desde la URL HTTPS (es otro origen: otro icono).
+En el iPhone: Ajustes → Wi‑Fi → (i) de la red de casa → desactivar **Limitar rastreo de dirección IP**, y en Ajustes → [tu nombre] → iCloud → **Relay privado** desactivado (o al menos para esta red). Si no, Safari puede saltarse el Pi-hole y no encontrar Claudio en casa.
 
 ## Problemas conocidos
 
-- **Punto de estado rojo:** el servidor no responde. Mira `~/Library/Logs/claudio-prod.log` y `launchctl print gui/$(id -u)/com.deimos97.claudio.prod`.
+- **Punto de estado rojo:** el servidor no responde (o, fuera de casa, la sesión del portal caducó: vuelve a entrar). Mira `~/Library/Logs/claudio-prod.log` y `launchctl print gui/$(id -u)/com.deimos97.claudio.prod`.
 - **No se actualiza tras desplegar:** la PWA comprueba la versión cada 30 s; si no, cierra y abre la app.

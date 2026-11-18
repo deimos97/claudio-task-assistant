@@ -3,7 +3,8 @@
 ## Estado de partida (2026-11-17)
 
 - Carpeta vacía, sin repo git todavía (repo creado ese mismo día: deimos97/claudio-task-assistant, público).
-- Mac mini: macOS 26.6.2, arm64, Node y Python 3 instalados; sin Tailscale, Caddy ni whisper.cpp.
+- Mac mini: macOS 26.6.2, arm64, Node y Python 3 instalados; sin Tailscale, Caddy ni whisper.cpp. IP 192.168.0.215 (Ethernet).
+- Raspberry 192.168.0.5 (Debian 13): Pi-hole (DNS + DHCP) y nginx público en :443 con certbot para `hotwheelsandbids.com` (home-portal) y `pihole.`; DNS del dominio en Cloudflare.
 - iPhone 11 disponible (LCD, sin riesgo de quemado de pantalla; batería: vigilar hinchazón por carga continua).
 
 ## Fase 0 — Esqueleto
@@ -12,7 +13,8 @@
 - [x] `git init`, repo en GitHub, ramas `main` / `dev` (2026-11-17)
 - [x] Backend mínimo en el Mac mini como LaunchAgent: dev en :3111 (2026-11-17)
 - [x] Primer merge `dev → main` (PR #1) y `scripts/deploy.sh` → prod en :3110 (2026-11-18, dc3dad8)
-- [ ] HTTPS para el iPhone (necesario para micro/cámara): Tailscale. **Pendiente de Javier:** instalar Tailscale en Mac mini e iPhone e iniciar sesión (pide contraseña de administrador y permiso de VPN); luego `tailscale serve` (ver `docs/iphone-kiosco.md`)
+- [x] Config de nginx (`deploy/nginx/claudio.conf`) y guía `docs/servidor-pi.md` para servir por dominio (2026-11-18)
+- [ ] HTTPS por dominio: `claudio.` y `claudio-dev.hotwheelsandbids.com` vía nginx de la Raspberry. **Pendiente de Javier:** CNAME en Cloudflare, registros locales y reserva DHCP en Pi-hole, `sudo` + certbot en la Raspberry (pasos en `docs/servidor-pi.md`)
 - [x] PWA con los ojos animados: idle/parpadeo, mirar alrededor, escuchando, pensando, hablando, contento, adormilado, dormido (noche 23:00–07:30) (2026-11-17)
 - [ ] Probar en el iPhone 11 real (rendimiento de la animación, wake lock, instalación en pantalla de inicio) — Javier, con `docs/iphone-kiosco.md`
 - [ ] iPhone en modo kiosco: pantalla de inicio, Acceso Guiado, bloqueo "Nunca", carga optimizada / enchufe inteligente — guía en `docs/iphone-kiosco.md`
@@ -25,7 +27,7 @@
 - [ ] Notas y listas (compra, ideas…) que Claudio mantiene
 - [ ] Tiempo (clima) junto al reloj (Open-Meteo, sin clave)
 - [ ] Varias pantallas: diseño adaptable (escritorio: ojos + lista + chat lado a lado) y sincronización en vivo entre dispositivos (SSE): lo que añades en el Mac aparece al momento en el iPhone
-- [ ] Acceso fuera de casa vía Tailscale y emparejamiento sencillo de dispositivos (el servidor no queda abierto a la red)
+- [ ] Emparejamiento de dispositivos con sesión larga propia de Claudio (fuera de casa ahora depende de la sesión de 12 h del home-portal)
 - [ ] Eventos propios de Claudio y lista "Próximo" bajo los ojos
 - [ ] Sincronización con Google Calendar (calendario dedicado "Claudio")
 
@@ -71,3 +73,4 @@
 | 2026-11-17 | Ojos en pixel art con colores planos (coral sobre fondo oscuro, brillo crema) en vez de ojos realistas | A Javier los ojos realistas le daban mal rollo; el pixel art es más mono y más "asistente" |
 | 2026-11-17 | Ojos: forma pixelada pero movimiento suave (sprite a resolución real con muelle amortiguado) y más recorrido de mirada | El movimiento a saltos de bloque no le gustaba a Javier |
 | 2026-11-18 | Añadidos: teclado, notas/listas, tiempo, copias de seguridad, varias pantallas con sincronización en vivo, resumen diario y papel por dispositivo | Ideas aprobadas por Javier |
+| 2026-11-18 | Dominio propio en vez de Tailscale: `claudio.` / `claudio-dev.hotwheelsandbids.com`, nginx de la Raspberry como proxy al Mac mini; red local sin login, fuera con login del home-portal | Reutiliza la infraestructura que ya existe (nginx, certbot, Pi-hole, login) y no exige app en cada dispositivo |

@@ -2,7 +2,7 @@
 
 Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado: **fase 0 casi cerrada** (2026-11-18): prod en :3110 y dev en :3111; falta HTTPS (Tailscale) y montar el iPhone. Ver `ROADMAP.md`.
+Estado: **fase 0 casi cerrada** (2026-11-18): prod en :3110 y dev en :3111; falta HTTPS por dominio (pasos de Javier en `docs/servidor-pi.md`) y montar el iPhone. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -48,8 +48,8 @@ npm run check    # comprobación de tipos
 
 | Entorno | Rama | Carpeta | Puerto | LaunchAgent | Log |
 |---|---|---|---|---|---|
-| dev | `dev` | esta copia de trabajo | 3111 | `com.deimos97.claudio.dev` (con `--watch`) | `~/Library/Logs/claudio-dev.log` |
-| prod | `main` | `~/Services/claudio-prod` (clon aparte) | 3110 | `com.deimos97.claudio.prod` | `~/Library/Logs/claudio-prod.log` |
+| dev (`https://claudio-dev.hotwheelsandbids.com`) | `dev` | esta copia de trabajo | 3111 | `com.deimos97.claudio.dev` (con `--watch`) | `~/Library/Logs/claudio-dev.log` |
+| prod (`https://claudio.hotwheelsandbids.com`) | `main` | `~/Services/claudio-prod` (clon aparte) | 3110 | `com.deimos97.claudio.prod` | `~/Library/Logs/claudio-prod.log` |
 
 - Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. Después: `scripts/deploy.sh`.
 - Nunca editar a mano `~/Services/claudio-prod`: `deploy.sh` hace `git reset --hard origin/main`.
@@ -78,3 +78,4 @@ npm run check    # comprobación de tipos
 |---|---|
 | Empezar o cerrar cualquier tarea | `ROADMAP.md` |
 | Montar o depurar el iPhone del escritorio (kiosco, PWA, HTTPS) | `docs/iphone-kiosco.md` |
+| Tocar dominios, certificados, DNS o el nginx de la Raspberry | `docs/servidor-pi.md` |
