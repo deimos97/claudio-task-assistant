@@ -68,6 +68,10 @@ Todo en **hora local de Madrid** como texto que ordena bien: `"YYYY-MM-DD"` (tod
 
 Un evento sin `done_at` sigue saliendo 30 días después de pasar (`PAST_EVENT_DAYS` en `server/items.ts`), en rojo y con aviso "¿Lo tuviste?". `complete_item` sirve para tareas y para citas.
 
+## Streaming
+
+`chat(text, who, onText)` usa `messages.stream()` en cada paso del bucle de herramientas y va pasando el texto según llega. La respuesta final es todo el texto del turno (también el que escribe antes de usar una herramienta), unido con espacios. El log dice `chat: <ms> (primer texto <ms>)`.
+
 ## Gasto
 
 Cada llamada al modelo se apunta en `api_usage` (tokens y coste en USD con los precios de Haiku 5.5: 0,10 $/M entrada, 0,50 $/M salida, caché a 0,1×) y el log del servicio dice `chat: <ms>, $<coste>` por turno.
@@ -92,7 +96,8 @@ Con listas, rutinas y `show` (2026-11-18, 6 órdenes de prueba): ~0,001 $ por me
 | `GET /api/routines` · `POST /api/routines` · `POST /api/routines/:id` · `DELETE /api/routines/:id` | gestión de rutinas |
 | `POST /api/entries/:id/done` | tacha una entrada de lista (`{"done": false}` la destacha) |
 | `GET /api/weather` | tiempo ahora, hoy y mañana en Barajas (Open-Meteo, caché 15 min; `CLAUDIO_LAT`/`LON`/`PLACE` para cambiarlo) |
-| `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text, who?}` → `{reply, changed, view}` |
+| `GET /api/chat` · `POST /api/chat` | últimos 30 mensajes · `{text, who?}` → `{reply, changed, view}`. Con `Accept: application/x-ndjson`, en trozos: `{"t":"text","d"}` según escribe el modelo y al final `{"t":"done",reply,changed,view}` o `{"t":"error",error}` |
+| `POST /api/tts` | `{text, who?, context?}` → audio; `context` (la respuesta hasta esa frase) decide el idioma |
 | `GET /api/usage` | gasto de la API de Anthropic: hoy, este mes y total (llamadas, tokens, USD) |
 | `GET /api/stream` | SSE: `items` (cambió algo), `chat` (mensaje nuevo), `show` (Claudio enseña una vista), `ping` cada 25 s |
 

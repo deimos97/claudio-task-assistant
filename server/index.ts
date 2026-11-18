@@ -6,7 +6,7 @@ import { join, relative } from 'node:path';
 import { Hono, type Context } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { streamSSE } from 'hono/streaming';
+import { stream, streamSSE } from 'hono/streaming';
 import Anthropic from '@anthropic-ai/sdk';
 import { DB_FILE, ENV, isWho, PORT, ROOT } from './config.ts';
 import './db.ts';
@@ -142,20 +142,42 @@ app.get('/api/usage', (c) => c.json(usageSummary()));
 
 app.get('/api/chat', (c) => c.json({ messages: recentMessages(30) }));
 
+function chatError(e: unknown): { error: string; status: 500 | 502 | 503 } {
+  console.error('chat:', e);
+  if (e instanceof Anthropic.AuthenticationError) return { error: 'La clave de Anthropic no es válida.', status: 502 };
+  if (e instanceof Anthropic.RateLimitError) return { error: 'Demasiadas peticiones; espera un poco.', status: 503 };
+  if (e instanceof Anthropic.APIError) return { error: `La API ha fallado (${e.status ?? 'red'}).`, status: 502 };
+  return { error: 'Algo ha fallado en el servidor.', status: 500 };
+}
+
+// Con "Accept: application/x-ndjson" la respuesta llega en trozos, una línea JSON cada uno:
+// {"t":"text","d":"…"} según la escribe el modelo y al final {"t":"done",reply,changed,view}
+// (o {"t":"error",error}). La pantalla empieza a decir la primera frase sin esperar al resto.
 app.post('/api/chat', async (c) => {
   const body = await c.req.json().catch(() => null);
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
   if (!text) return c.json({ error: 'Mensaje vacío' }, 400);
   if (text.length > 4000) return c.json({ error: 'Mensaje demasiado largo' }, 400);
   if (!chatConfigured()) return c.json({ error: 'Claudio aún no tiene clave de Anthropic.' }, 503);
+  const who = isWho(body?.who) ? body.who : null;
+  if ((c.req.header('accept') ?? '').includes('application/x-ndjson')) {
+    c.header('Content-Type', 'application/x-ndjson; charset=utf-8');
+    c.header('X-Accel-Buffering', 'no'); // que nginx no acumule los trozos
+    return stream(c, async (s) => {
+      const line = (o: unknown) => s.write(`${JSON.stringify(o)}\n`);
+      try {
+        const r = await chat(text, who, (d) => { void line({ t: 'text', d }); });
+        await line({ t: 'done', ...r });
+      } catch (e) {
+        await line({ t: 'error', error: chatError(e).error });
+      }
+    });
+  }
   try {
-    return c.json(await chat(text, isWho(body?.who) ? body.who : null));
+    return c.json(await chat(text, who));
   } catch (e) {
-    console.error('chat:', e);
-    if (e instanceof Anthropic.AuthenticationError) return c.json({ error: 'La clave de Anthropic no es válida.' }, 502);
-    if (e instanceof Anthropic.RateLimitError) return c.json({ error: 'Demasiadas peticiones; espera un poco.' }, 503);
-    if (e instanceof Anthropic.APIError) return c.json({ error: `La API ha fallado (${e.status ?? 'red'}).` }, 502);
-    return c.json({ error: 'Algo ha fallado en el servidor.' }, 500);
+    const { error, status } = chatError(e);
+    return c.json({ error }, status);
   }
 });
 
@@ -176,7 +198,9 @@ app.post('/api/tts', async (c) => {
   const body = await c.req.json().catch(() => null);
   const text = typeof body?.text === 'string' ? body.text : '';
   try {
-    const { audio, type } = await speak(text, isWho(body?.who) ? body.who : null);
+    // `context`: la respuesta entera hasta esta frase, para acertar el idioma con frases cortas
+    const context = typeof body?.context === 'string' ? body.context : undefined;
+    const { audio, type } = await speak(text, isWho(body?.who) ? body.who : null, context);
     return c.body(new Uint8Array(audio), 200, { 'Content-Type': type });
   } catch (e) {
     if (e instanceof VoiceError) return c.json({ error: e.message }, 400);

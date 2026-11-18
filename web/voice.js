@@ -5,7 +5,7 @@
 const RATE = 16000;
 const PREROLL_MS = 350;   // audio que se guarda antes de detectar voz (para no comerse el principio)
 const START_BLOCKS = 3;   // bloques seguidos con voz para empezar una frase (~65 ms)
-const END_MS = 700;       // silencio que cierra una frase
+const END_MS = 500;       // silencio que cierra una frase (era 700; si corta a media frase, subirlo)
 const MIN_SPEECH_MS = 250;
 const MAX_MS = 15_000;
 
@@ -144,12 +144,14 @@ export class Ears {
   }
 
   /** Reproduce audio (ArrayBuffer) y resuelve al terminar. Mientras suena, no se escucha. */
-  async play(data) {
+  /** Reproduce un audio sin escucharse a sí mismo. Con `more`, vienen más trozos detrás:
+   *  sigue sordo hasta release() (así no se cuela su propia voz entre frase y frase). */
+  async play(data, { more = false } = {}) {
     const ctx = this.ctx;
     if (!ctx) return;
-    const buffer = await ctx.decodeAudioData(data);
     this.muted = true;
     try {
+      const buffer = await ctx.decodeAudioData(data);
       await new Promise((resolve) => {
         const src = ctx.createBufferSource();
         src.buffer = buffer;
@@ -157,10 +159,15 @@ export class Ears {
         src.onended = resolve;
         src.start();
       });
-      await new Promise((r) => setTimeout(r, 350)); // que no se oiga a sí mismo en la cola
     } finally {
-      this.muted = false;
+      if (!more) await this.release();
     }
+  }
+
+  /** Vuelve a escuchar tras hablar (con un margen para la cola del altavoz). */
+  async release() {
+    await new Promise((r) => setTimeout(r, 350));
+    this.muted = false;
   }
 }
 

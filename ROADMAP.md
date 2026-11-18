@@ -72,6 +72,8 @@
 
 ## Fase 3 — Proactividad (y mejoras de voz)
 
+- [x] Responder antes: Haiku en streaming, cada frase se dice en cuanto se escribe, y fin de frase a 500 ms (2026-11-18). ~0,4 s menos; primera frase sonando a ~1,65 s de acabar whisper
+- [ ] Voz más rápida: `say` tarda ~0,7 s por frase en arrancar; un proceso de voz que se quede abierto o Piper
 - [ ] (Si hiciera falta) wake word dedicada en el navegador (openWakeWord/Porcupine) en vez de transcribir cada frase. Hoy no hace falta: detecta bien. Mirarlo si hay falsos «Claudio» con la tele, si tarda en reaccionar o si whisper carga el Mac
 - [x] Avisos en pantalla en vez de hablar solo (2026-11-18): rutina que toca ("¿Hecho? Cambiar la arena"), contador con lectura vieja ("Coche: ¿cuántos km?"), cita pasada sin marcar ("¿Lo tuviste?"). Al tocarlo, Claudio pregunta y apunta la respuesta. `server/nudges.ts`
 - [x] Resumen de la mañana como aviso (6:00–12:30): tiempo, lo de hoy y lo que no hay que olvidar, más la vista de hoy (2026-11-18)

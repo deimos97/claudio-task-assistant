@@ -426,14 +426,14 @@ function react(state, ms, then = 'idle') {
   if (ms) reactTimer = setTimeout(() => { eyes.setState(then); applyNight(); }, ms);
 }
 let captionTimer = null;
-function say(text, { error = false } = {}) {
+function say(text, { error = false, animate = true } = {}) {
   const cap = $('caption');
   cap.textContent = text;
   cap.classList.toggle('error', error);
   cap.classList.remove('fade');
   clearTimeout(captionTimer);
   captionTimer = setTimeout(() => cap.classList.add('fade'), 25_000);
-  if (!error) {
+  if (!error && animate) { // con voz, los ojos los mueve la propia voz (speaker)
     const talk = Math.min(4500, 900 + text.length * 45);
     react('talking', talk, 'happy');
     setTimeout(() => { if (eyes.state === 'happy') react('idle', 0); }, talk + 1200);
@@ -492,8 +492,9 @@ function pendingBubble() {
 }
 loadChat();
 
-/** Envía un mensaje a Claudio y devuelve su respuesta (o null si falló). */
-async function sendChat(text, who = deviceWho()) {
+/** Envía un mensaje a Claudio y devuelve su respuesta (o null si falló). La respuesta llega
+ *  en trozos (NDJSON): se va pintando y, si hay `voice`, cada frase se dice en cuanto termina. */
+async function sendChat(text, who = deviceWho(), voice = null) {
   if (!text || waiting) return null;
   waiting = true;
   $('chat-send').disabled = true;
@@ -503,13 +504,23 @@ async function sendChat(text, who = deviceWho()) {
   react('thinking');
   try {
     const r = await fetch('api/chat', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, who }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
+      body: JSON.stringify({ text, who }),
     });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error ?? `Error ${r.status}`);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.error ?? `Error ${r.status}`);
+    }
+    const data = await readStream(r, (partial) => {
+      const pending = log.querySelector('.pending');
+      if (pending) pending.textContent = partial;
+      $('caption').textContent = partial;
+      $('caption').classList.remove('fade', 'error');
+    }, voice);
     waiting = false;
     lastReply = data.reply;
-    say(data.reply);
+    say(data.reply, { animate: !voice });
     if (data.view) showView(data.view, data.reply); else hideView();
     loadChat(); // por si el aviso en vivo no llegó
     if (data.changed) loadView();
@@ -525,6 +536,88 @@ async function sendChat(text, who = deviceWho()) {
     waiting = false;
     $('chat-send').disabled = false;
   }
+}
+
+// Lee la respuesta en trozos; devuelve {reply, changed, view}. onPartial(textoHastaAhora).
+async function readStream(r, onPartial, voice) {
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let textSoFar = '';
+  let done = null;
+  const sentences = voice ? sentenceSplitter((s) => voice.add(s, textSoFar)) : null;
+  for (;;) {
+    const { value, done: end } = await reader.read();
+    if (value) buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let o;
+      try { o = JSON.parse(line); } catch { continue; }
+      if (o.t === 'text') { textSoFar += o.d; onPartial(textSoFar); sentences?.push(o.d); }
+      else if (o.t === 'done') done = o;
+      else if (o.t === 'error') throw new Error(o.error);
+    }
+    if (end) break;
+  }
+  if (!done) throw new Error('Se ha cortado la respuesta.');
+  sentences?.end();
+  return done;
+}
+
+// Corta el texto que va llegando en frases: "…mañana. " o "…¿vale? " cierran una frase.
+// Las muy cortas ("Vale.") se juntan con la siguiente para que no suene a trompicones.
+function sentenceSplitter(onSentence) {
+  let buf = '';
+  const MIN = 12;
+  return {
+    push(d) {
+      buf += d;
+      let m;
+      while ((m = buf.match(/^([\s\S]*?[.!?…:;](?:["»)])?)\s+(?=\S)/))) {
+        if (m[1].trim().length < MIN && buf.length - m[0].length < 400) {
+          // demasiado corta: esperar a la siguiente (se busca el siguiente cierre más adelante)
+          const rest = buf.slice(m[0].length);
+          const m2 = rest.match(/^([\s\S]*?[.!?…:;](?:["»)])?)\s+(?=\S)/);
+          if (!m2) break;
+          onSentence(`${m[1]} ${m2[1]}`.trim());
+          buf = rest.slice(m2[0].length);
+          continue;
+        }
+        onSentence(m[1].trim());
+        buf = buf.slice(m[0].length);
+      }
+    },
+    end() { if (buf.trim()) onSentence(buf.trim()); buf = ''; },
+  };
+}
+
+// Voz por frases: pide el audio de cada frase en cuanto llega (en paralelo) y las reproduce
+// en orden, sin hueco entre ellas. finish() espera a que acabe la última.
+function speaker(who) {
+  let chain = Promise.resolve();
+  let started = false;
+  return {
+    add(sentence, context) {
+      const audio = fetch('api/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: sentence, who, context }),
+      }).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
+      chain = chain.then(async () => {
+        const data = await audio;
+        if (!data || !ears) return;
+        if (!started) { started = true; clearTimeout(reactTimer); eyes.setState('talking'); }
+        await ears.play(data, { more: true });
+      });
+    },
+    async finish() {
+      await chain.catch(() => {});
+      if (ears) await ears.release();
+      if (started) eyes.setState('idle');
+    },
+  };
 }
 
 $('chat-form').addEventListener('submit', (ev) => {
@@ -704,25 +797,13 @@ async function onPhrase(wav, f0) {
   voiceMode = 'busy';
   setMicUi();
   const who = whoFromPitch(f0) ?? deviceWho();
-  const reply = await sendChat(command, who);
-  if (reply && ears) await speakReply(reply, who);
+  const voice = ears ? speaker(who) : null;
+  const reply = await sendChat(command, who, voice);
+  await voice?.finish();
   if (voiceMode === 'off') return;
   // Si Claudio pregunta algo, se puede contestar sin volver a llamarlo
   if (reply && /\?\s*$/.test(reply)) enterCommand();
   else backToIdle();
-}
-
-async function speakReply(text, who = null) {
-  try {
-    const r = await fetch('api/tts', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, who }),
-    });
-    if (!r.ok) return;
-    const audio = await r.arrayBuffer();
-    eyes.setState('talking');
-    await ears.play(audio);
-    eyes.setState('idle');
-  } catch { /* sin voz: queda el texto */ }
 }
 
 window.claudio.voice = () => ({ mode: voiceMode, ears }); // depurar desde la consola
@@ -802,11 +883,12 @@ async function openNudge(n, chip) {
   const who = deviceWho();
   const listening = ears && voiceMode === 'idle';
   if (listening) { voiceMode = 'busy'; setMicUi(); }
-  const reply = await sendChat(n.ask, who);
+  const voice = listening ? speaker(who) : null;
+  const reply = await sendChat(n.ask, who, voice);
+  await voice?.finish();
   if (!reply) { if (listening) backToIdle(); return; }
   const asks = reply.includes('?');
   if (listening) {
-    await speakReply(reply, who);
     if (asks) enterCommand(); else backToIdle();
   } else if (asks && !matchMedia('(min-width: 900px) and (pointer: fine)').matches) {
     toggleChat(true); // sin micro, se contesta por teclado

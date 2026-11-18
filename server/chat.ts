@@ -436,14 +436,15 @@ function save(role: 'user' | 'assistant', text: string, who: Who | null = null):
 // Un turno cada vez: la conversación es única y compartida entre pantallas.
 let queue: Promise<unknown> = Promise.resolve();
 export type ChatResult = { reply: string; changed: boolean; view: ViewSpec | null };
-/** `who`: quién habla (por el tono de voz o el dueño del dispositivo); null si no se sabe. */
-export function chat(text: string, who: Who | null = null): Promise<ChatResult> {
-  const run = queue.then(() => turn(text, who));
+/** `who`: quién habla (por el tono de voz o el dueño del dispositivo); null si no se sabe.
+ *  `onText`: trozos de la respuesta según los escribe el modelo (para empezar a hablar antes). */
+export function chat(text: string, who: Who | null = null, onText?: (delta: string) => void): Promise<ChatResult> {
+  const run = queue.then(() => turn(text, who, onText));
   queue = run.catch(() => {});
   return run;
 }
 
-async function turn(text: string, who: Who | null): Promise<ChatResult> {
+async function turn(text: string, who: Who | null, onText?: (delta: string) => void): Promise<ChatResult> {
   const c = getClient();
   if (!c) throw new Error(`Falta la clave de Anthropic (${ANTHROPIC_KEY_FILE})`);
 
@@ -470,8 +471,12 @@ async function turn(text: string, who: Who | null): Promise<ChatResult> {
   let reply = '';
   let turnCost = 0;
   const started = Date.now();
+  let firstText = 0;
+  // Todo lo que escribe en el turno (también el texto antes de usar herramientas): se va
+  // mandando a la pantalla según llega y es la respuesta final.
+  const said: string[] = [];
   for (let step = 0; step < MAX_STEPS; step++) {
-    const res = await c.messages.create({
+    const stream = c.messages.stream({
       model: MODEL,
       max_tokens: 16000,
       output_config: { effort: 'low' },
@@ -479,12 +484,22 @@ async function turn(text: string, who: Who | null): Promise<ChatResult> {
       tools,
       messages,
     });
+    let stepText = '';
+    stream.on('text', (delta) => {
+      if (!firstText) firstText = Date.now();
+      // Entre pasos (texto, herramientas, más texto), un espacio para que no se peguen las frases
+      if (!stepText && said.length) onText?.(' ');
+      stepText += delta;
+      onText?.(delta);
+    });
+    const res = await stream.finalMessage();
 
     turnCost += recordUsage(res.usage);
+    if (stepText.trim()) said.push(stepText.trim());
     if (res.stop_reason === 'refusal') { reply = 'Eso no puedo hacerlo.'; break; }
-    const textOut = res.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('\n').trim();
     if (res.stop_reason !== 'tool_use') {
-      reply = textOut || (res.stop_reason === 'max_tokens' ? 'Me he liado, ¿me lo repites más corto?' : 'Hecho.');
+      reply = said.join(' ') || (res.stop_reason === 'max_tokens' ? 'Me he liado, ¿me lo repites más corto?' : 'Hecho.');
+      if (!said.length) onText?.(reply);
       break;
     }
 
@@ -501,7 +516,10 @@ async function turn(text: string, who: Who | null): Promise<ChatResult> {
       }
     }
     messages.push({ role: 'user', content: results });
-    if (step === MAX_STEPS - 1) reply = textOut || 'Me he quedado a medias; mira la lista por si acaso.';
+    if (step === MAX_STEPS - 1) {
+      reply = said.join(' ') || 'Me he quedado a medias; mira la lista por si acaso.';
+      if (!said.length) onText?.(reply);
+    }
   }
 
   // Si no ha enseñado nada pero ha cambiado algo, se enseña lo cambiado (y se quita solo).
@@ -509,6 +527,6 @@ async function turn(text: string, who: Who | null): Promise<ChatResult> {
   // La vista se avisa antes que la respuesta: las pantallas la enseñan mientras la leen.
   if (state.view) publish('show', state.view);
   save('assistant', reply);
-  console.log(`chat: ${Date.now() - started} ms, $${turnCost.toFixed(5)}`);
+  console.log(`chat: ${Date.now() - started} ms (primer texto ${firstText ? firstText - started : '-'} ms), $${turnCost.toFixed(5)}`);
   return { reply, changed, view: state.view };
 }

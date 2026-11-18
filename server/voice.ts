@@ -51,7 +51,7 @@ export function guessLanguage(text: string): 'es' | 'en' {
 export type Speech = { audio: Buffer; type: 'audio/mp4' | 'audio/wav' };
 
 /** Texto → audio con la voz de Claudio (español: Jorge; inglés: Heart). */
-export async function speak(text: string, who: Who | null = null): Promise<Speech> {
+export async function speak(text: string, who: Who | null = null, context?: string): Promise<Speech> {
   const clean = text
     .replace(/[*_`#>]/g, '')                       // restos de markdown
     .replace(/\p{Extended_Pictographic}/gu, '')    // emojis
@@ -59,7 +59,7 @@ export async function speak(text: string, who: Who | null = null): Promise<Speec
     .trim()
     .slice(0, 1500);
   if (!clean) throw new VoiceError('Nada que decir');
-  const lang = guessLanguage(clean);
+  const lang = guessLanguage(context && context.includes(text.trim()) ? context : clean);
   if (lang === 'en') {
     try {
       return { audio: await kokoro(clean, KOKORO_VOICE_EN, 'en-us'), type: 'audio/wav' };

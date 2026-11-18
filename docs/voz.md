@@ -10,7 +10,10 @@ micro del iPhone ─► web/voice.js: remuestreo a 16 kHz + VAD por energía ─
    ─► ¿empieza por "Claudio"? ─ no → se descarta
                               ─ "Claudio" solo → pitido, ojos escuchando, 7 s para la orden
                               ─ "Claudio, haz X" → X va directo al chat
-   ─► respuesta ─► POST /api/tts ─► español: `say` Jorge (AAC) · inglés: Kokoro Heart (WAV) ─► altavoz (sin escuchar mientras suena)
+   ─► respuesta en streaming (POST /api/chat con Accept: application/x-ndjson)
+   ─► cada frase, en cuanto se cierra (". ", "? "…) ─► POST /api/tts {text, context}
+      ─► español: `say` Jorge (AAC) · inglés: Kokoro Heart (WAV) ─► altavoz, en orden y sin hueco
+      (sordo desde la primera frase hasta 350 ms después de la última)
    ─► si la respuesta acaba en "?", pitido y escucha la contestación sin wake word
 ```
 
@@ -44,6 +47,10 @@ Elegidas el 2026-11-18 (provisionales): **Jorge (mejorada)** en español y **Kok
 
 ## Medidas (M2 Pro, 2026-11-18)
 
+Respuesta por frases (2026-11-18, "¿Qué tiempo hará mañana?" en dos frases): primera frase escrita a 0,72 s y sonando a **1,65 s** de mandar la pregunta, frente a 1,87 s antes (respuesta entera 0,96 s + audio de todo 0,9 s). Con respuestas largas se gana más. Fin de frase del VAD: de 700 a **500 ms** (`END_MS` en `web/voice.js`; subirlo si corta a media frase). En total, ~0,4 s menos.
+
+Lo que queda: whisper ~0,85 s y `say` ~0,7 s por frase, casi todo arrancar el proceso y cargar la voz (en WAV tarda lo mismo que en AAC). Un proceso de voz que se quede abierto, o Piper (0,1–0,4 s), lo bajaría.
+
 - whisper con idioma fijo `es`: **~0,85 s** por frase de 2–3 s; con `auto`, ~1,7 s. Con `es` transcribe bien el inglés, así que se deja fijo.
 - De fin de frase a empezar a hablar: ~3,3 s en español (whisper 0,9 + Haiku 1,8 + Jorge 0,6–0,8) y ~4 s en inglés (Kokoro ~1,3 s).
 
@@ -54,6 +61,7 @@ Elegidas el 2026-11-18 (provisionales): **Jorge (mejorada)** en español y **Kok
 
 - **Safari no reproduce audio que pasa por el service worker** (pide trozos con `Range`): `web/sw.js` deja pasar directos el audio, el vídeo y todo lo que esté bajo `/_`.
 
+- **Frases para la voz:** las de menos de 12 caracteres ("Vale.") se juntan con la siguiente para que no suene a trompicones. El idioma se decide con todo lo dicho hasta esa frase (`context`), no con la frase sola: "Sure." sola parecería español.
 - **La wake word no es un modelo dedicado:** se transcribe cada frase que supera el ruido de fondo y se mira si empieza por "Claudio". Con tele o conversación, whisper trabaja en continuo (local, sin coste). Si hay falsos positivos o carga, cambiar por openWakeWord/Porcupine solo esa pieza.
 - **iOS necesita un toque para el audio:** tras una recarga (cada despliegue), si `AudioContext` no arranca solo, Claudio dice "Toca la pantalla para despertar mis oídos" y el primer toque lo activa. La auto-recarga no ocurre mientras está escuchando una orden o hablando.
 - **Permiso del micro en la PWA:** iOS puede volver a pedirlo al abrir la app desde la pantalla de inicio.
