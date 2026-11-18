@@ -2,7 +2,7 @@
 
 Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado: **fase 0 en curso** (2026-11-17): servidor y PWA con los ojos funcionando en dev. Ver `ROADMAP.md`.
+Estado: **fase 1 en curso** (2026-11-18): fase 0 cerrada (iPhone en kiosco, HTTPS por dominio). En dev ya hay BD, agenda real en "Próximo", chat con Haiku por teclado y por voz (wake word "Claudio", whisper, `say`) y avisos en vivo entre pantallas. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -19,7 +19,7 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 - **Cliente:** PWA (no app nativa: las apps firmadas con cuenta gratuita caducan a los 7 días y cada actualización exige Xcode). Añadida a pantalla de inicio + Acceso Guiado + bloqueo automático "Nunca".
 - **Backend:** en el Mac mini (arm64, macOS 26). Es la fuente de verdad de todos los datos.
 - **LLM:** Claude Haiku vía API con herramientas (`create_event`, `log_reading`, `complete_task`, `list_upcoming`, `add_roadmap_item`…). Sin modelo local en el iPhone.
-- **Voz:** wake word en el navegador (WASM) → pitido → grabación hasta silencio (VAD) → STT en el Mac mini (whisper.cpp, multilingüe) → Haiku → TTS.
+- **Voz:** el navegador corta frases por energía (VAD) → whisper.cpp en el Mac mini las transcribe → si empiezan por "Claudio", pitido / orden → Haiku → voz (Jorge con `say` en español, Kokoro Heart en inglés) → altavoz. Ver `docs/voz.md`.
 - **Calendario:** Claudio es dueño de sus eventos; se sincronizan hacia Google Calendar.
 
 ## Stack y estructura
@@ -28,13 +28,25 @@ iPhone 11 (PWA en modo kiosco)  ──►  Backend Claudio (Mac mini)  ──►
 - **Cliente:** HTML + CSS + JavaScript (módulos ES) sin framework ni build. Lo que hay en `web/` es lo que se sirve.
 
 ```
-server/index.ts        API (/api/health, /api/upcoming) y sirve web/
+server/index.ts        API (health, upcoming, items, chat, stream) y sirve web/
+server/config.ts       rutas (datos en ~/.claudio/<entorno>/), hora local de Madrid
+server/db.ts           SQLite (node:sqlite) + migraciones + copias automáticas
+server/migrations/     NNN_nombre.sql, se aplican solas al arrancar
+server/items.ts        eventos y tareas: consultas y validación
+server/chat.ts         chat con Claude Haiku (claude-haiku-5-5) y sus herramientas
+server/bus.ts          avisos en vivo (SSE) a todas las pantallas
+server/voice.ts        voz: whisper (127.0.0.1:3120) para entender; para hablar, `say` Jorge (es) y Kokoro Heart (en, 127.0.0.1:3121)
 web/index.html         página única: ojos arriba, "Próximo" abajo
 web/eyes.js            ojos en pixel art: forma en "bloques" (escena de 40×22) pero posición continua a resolución real → movimiento suave. Estados: idle, listening, thinking, talking, happy, sleepy, sleeping
-web/app.js             reloj, modo noche, lista, salud + auto-recarga, wake lock
+web/app.js             reloj, modo noche, lista "Próximo", chat por teclado, avisos en vivo, salud + auto-recarga, wake lock
+web/voice.js           oídos: micro → 16 kHz → VAD → frases WAV; pitido; reproducir la voz; detectar "Claudio"
+web/capture-worklet.js hilo de audio que pasa las muestras del micro
 web/sw.js              service worker (red primero; la API nunca se cachea)
 scripts/install-agent.sh  instala el LaunchAgent de dev o prod
 scripts/deploy.sh      despliega producción desde origin/main
+scripts/install-whisper.sh  instala whisper.cpp + modelos y su LaunchAgent (común a dev y prod)
+scripts/install-tts.sh      instala Kokoro (voz inglesa) + modelos y su LaunchAgent (común a dev y prod)
+scripts/kokoro-server.py    servidor HTTP mínimo de Kokoro (127.0.0.1:3121)
 ```
 
 ## Comandos
@@ -48,8 +60,8 @@ npm run check    # comprobación de tipos
 
 | Entorno | Rama | Carpeta | Puerto | LaunchAgent | Log |
 |---|---|---|---|---|---|
-| dev | `dev` | esta copia de trabajo | 3111 | `com.deimos97.claudio.dev` (con `--watch`) | `~/Library/Logs/claudio-dev.log` |
-| prod | `main` | `~/Services/claudio-prod` (clon aparte) | 3110 | `com.deimos97.claudio.prod` | `~/Library/Logs/claudio-prod.log` |
+| dev (`https://claudio-dev.hotwheelsandbids.com`) | `dev` | esta copia de trabajo | 3111 | `com.deimos97.claudio.dev` (con `--watch`) | `~/Library/Logs/claudio-dev.log` |
+| prod (`https://claudio.hotwheelsandbids.com`) | `main` | `~/Services/claudio-prod` (clon aparte) | 3110 | `com.deimos97.claudio.prod` | `~/Library/Logs/claudio-prod.log` |
 
 - Se trabaja en `dev`; a `main` solo por PR `dev → main` aprobado por Javier. Después: `scripts/deploy.sh`.
 - Nunca editar a mano `~/Services/claudio-prod`: `deploy.sh` hace `git reset --hard origin/main`.
@@ -77,3 +89,7 @@ npm run check    # comprobación de tipos
 | Si vas a… | Lee |
 |---|---|
 | Empezar o cerrar cualquier tarea | `ROADMAP.md` |
+| Montar o depurar el iPhone del escritorio (kiosco, PWA, HTTPS) | `docs/iphone-kiosco.md` |
+| Tocar dominios, certificados, DNS o el nginx de la Raspberry | `docs/servidor-pi.md` |
+| Tocar la BD, migraciones, copias, el chat con Haiku o la clave de Anthropic | `docs/backend.md` |
+| Tocar la voz: micro, wake word, whisper, `say` | `docs/voz.md` |
