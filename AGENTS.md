@@ -2,7 +2,7 @@
 
 Asistente personal que vive en un iPhone 11 reciclado sobre la mesa: unos ojos animados en **pixel art** (colores planos, paleta cálida tipo Claude) arriba y la lista de **próximos eventos y tareas** abajo, en vertical. Se le habla por voz con palabra de activación ("Claudio") en español o inglés.
 
-Estado: **fase 0 en curso** (2026-11-17): servidor y PWA con los ojos funcionando en dev. Ver `ROADMAP.md`.
+Estado: **fase 0 casi cerrada** (2026-11-18): prod en :3110 y dev en :3111; falta HTTPS (Tailscale) y montar el iPhone. Ver `ROADMAP.md`.
 
 Repo público: https://github.com/deimos97/claudio-task-assistant
 
@@ -77,3 +77,4 @@ npm run check    # comprobación de tipos
 | Si vas a… | Lee |
 |---|---|
 | Empezar o cerrar cualquier tarea | `ROADMAP.md` |
+| Montar o depurar el iPhone del escritorio (kiosco, PWA, HTTPS) | `docs/iphone-kiosco.md` |

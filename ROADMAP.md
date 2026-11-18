@@ -11,11 +11,11 @@
 - [x] Elegir stack del backend y del cliente (2026-11-17)
 - [x] `git init`, repo en GitHub, ramas `main` / `dev` (2026-11-17)
 - [x] Backend mínimo en el Mac mini como LaunchAgent: dev en :3111 (2026-11-17)
-- [ ] Primer merge `dev → main` y `scripts/deploy.sh` → prod en :3110
-- [ ] HTTPS para el iPhone (necesario para micro/cámara): Tailscale (MagicDNS + certificados) u otra opción
+- [x] Primer merge `dev → main` (PR #1) y `scripts/deploy.sh` → prod en :3110 (2026-11-18, dc3dad8)
+- [ ] HTTPS para el iPhone (necesario para micro/cámara): Tailscale. **Pendiente de Javier:** instalar Tailscale en Mac mini e iPhone e iniciar sesión (pide contraseña de administrador y permiso de VPN); luego `tailscale serve` (ver `docs/iphone-kiosco.md`)
 - [x] PWA con los ojos animados: idle/parpadeo, mirar alrededor, escuchando, pensando, hablando, contento, adormilado, dormido (noche 23:00–07:30) (2026-11-17)
-- [ ] Probar en el iPhone 11 real (rendimiento de la animación, wake lock, instalación en pantalla de inicio)
-- [ ] iPhone en modo kiosco: pantalla de inicio, Acceso Guiado, bloqueo "Nunca", carga optimizada / enchufe inteligente
+- [ ] Probar en el iPhone 11 real (rendimiento de la animación, wake lock, instalación en pantalla de inicio) — Javier, con `docs/iphone-kiosco.md`
+- [ ] iPhone en modo kiosco: pantalla de inicio, Acceso Guiado, bloqueo "Nunca", carga optimizada / enchufe inteligente — guía en `docs/iphone-kiosco.md`
 
 ## Fase 1 — Hablar con Claudio (texto) + eventos
 
