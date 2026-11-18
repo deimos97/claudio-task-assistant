@@ -177,6 +177,8 @@ function whenLabel(at) {
 // En reposo: "Próximo". Cuando Claudio usa `show`, el panel crece sobre los ojos con esa
 // vista y vuelve solo tras SHOW_MS sin tocarlo, al cerrarlo o con una respuesta que no enseña nada.
 const SHOW_MS = 60_000;
+const AUTO_SHOW_MS = 12_000; // lo que se enseña solo tras un cambio ("he añadido carne") se va antes
+let viewTouched = false;     // si se toca la vista, se queda el tiempo normal
 let viewSpec = null;   // null = "Próximo"
 let showTimer = null;
 let turnShown = false; // ¿la respuesta en curso ha enseñado algo?
@@ -228,6 +230,8 @@ function ringEl(r) {
 function rowEl(r) {
   const li = document.createElement('li');
   li.classList.add(r.kind);
+  li.dataset.key = r.key;
+  if (viewSpec?.highlight?.includes(r.key)) li.classList.add('flash');
   if (r.done) li.classList.add('done');
   // Tarea con margen: antes de empezar, "desde 17 nov"; después, el plazo y los días que quedan
   const today = isoDate(new Date());
@@ -332,6 +336,9 @@ function renderView(v) {
     box.appendChild(ul);
   }
   box.scrollTop = keep;
+  // Lo recién cambiado, a la vista (solo la primera vez que se pinta)
+  const hit = box.querySelector('li.flash');
+  if (hit && !box.dataset.scrolled) { box.dataset.scrolled = '1'; hit.scrollIntoView({ block: 'nearest' }); }
 }
 
 async function loadView() {
@@ -354,8 +361,10 @@ function showView(spec, note) {
   turnShown = true;
   if (note !== undefined) $('panel-note').textContent = note;
   if (!same) {
+    viewTouched = false;
     $('panel-note').textContent = note ?? '';
     $('panel-body').scrollTop = 0;
+    delete $('panel-body').dataset.scrolled;
     document.body.classList.add('showing');
     $('panel-close').hidden = false;
     // Claudio mira hacia lo que enseña
@@ -376,11 +385,11 @@ function hideView() {
 }
 function armShowTimer() {
   clearTimeout(showTimer);
-  if (viewSpec) showTimer = setTimeout(hideView, SHOW_MS);
+  if (viewSpec) showTimer = setTimeout(hideView, viewSpec.auto && !viewTouched ? AUTO_SHOW_MS : SHOW_MS);
 }
 // Mientras se mira (scroll, toques), el panel no se cierra
-for (const ev of ['pointerdown', 'scroll', 'wheel', 'touchmove']) {
-  $('panel-body').addEventListener(ev, armShowTimer, { passive: true });
+for (const ev of ['pointerdown', 'wheel', 'touchmove']) {
+  $('panel-body').addEventListener(ev, () => { viewTouched = true; armShowTimer(); }, { passive: true });
 }
 $('panel-close').addEventListener('click', hideView);
 window.claudio.show = showView; // depurar: claudio.show({ list: 'Compra' })
@@ -679,6 +688,8 @@ async function onPhrase(wav, f0) {
   let command;
   if (wasCommand) {
     command = text;
+    // Repetir "Claudio" tras el pitido no es una orden: se sigue escuchando
+    if (wakeWord(text) !== null && wakeWord(text).replace(/[\s.,!?¿¡]/g, '').length < 3) { enterCommand(); return; }
   } else {
     command = wakeWord(text);
     if (command === null) return;          // charla que no va con Claudio

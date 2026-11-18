@@ -41,6 +41,7 @@ Página normal (con scroll) para crear, editar, completar y borrar a mano: pesta
 - Claudio usa la herramienta `show` con una especificación: `{list}` (una lista), `{lists: true}`, `{category}`, `{kinds: [events|tasks|routines]}`, `{days}` y `title` opcional. `server/view.ts` la convierte en grupos de filas.
 - El servidor avisa con el evento SSE `show` (todas las pantallas lo enseñan) y la respuesta de `POST /api/chat` trae `view`.
 - Al enseñar: `body.showing` → los ojos encogen, el panel sube como tarjeta con el título de la vista y la respuesta de Claudio debajo, y los ojos miran hacia abajo.
+- **Tras un cambio, se enseña solo:** si Claudio añade a una lista, crea o mueve una tarea o apunta una rutina y no ha usado `show`, el servidor manda la vista donde ha quedado (`{list}` o `{category}`) con `highlight` (las filas cambiadas, resaltadas un momento) y `auto: true`: se quita a los 12 s, o a los 60 s si se toca.
 - Vuelve a "Próximo": a los 60 s sin tocar el panel (scroll o toques reinician la cuenta), al tocar la × o los ojos, o cuando llega una respuesta que no enseña nada.
 - La pantalla guarda la especificación y vuelve a pedir `GET /api/view?spec=…` con cada aviso `items`, así la vista sigue viva (p. ej. al tachar en la compra).
 - Depurar: `claudio.show({ list: 'Compra' })`, `claudio.show({ category: 'casa' })`, `claudio.show(null)`.

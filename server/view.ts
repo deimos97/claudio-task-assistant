@@ -17,6 +17,8 @@ export type ViewSpec = {
   who?: Who;                    // lo de esta persona + lo compartido
   min_priority?: number;        // solo desde esta prioridad
   sort?: 'priority';            // agrupar por prioridad en vez de por fecha
+  highlight?: string[];         // filas recién cambiadas (claves "i12", "r3", "e40"), resaltadas
+  auto?: boolean;               // la puso el servidor tras un cambio: se quita sola antes
 };
 export type Row = {
   key: string;
@@ -79,6 +81,11 @@ export function checkSpec(v: unknown): ViewSpec {
   if (isWho(o.who)) spec.who = o.who;
   if (o.min_priority !== undefined && o.min_priority !== null) spec.min_priority = checkPriority(o.min_priority);
   if (o.sort === 'priority') spec.sort = 'priority';
+  if (Array.isArray(o.highlight)) {
+    const h = o.highlight.filter((k): k is string => typeof k === 'string' && /^[ire]\d+$/.test(k)).slice(0, 50);
+    if (h.length) spec.highlight = h;
+  }
+  if (o.auto === true) spec.auto = true;
   if (spec.list && !findList(spec.list)) throw new InputError(`no existe la lista "${spec.list}"`);
   return spec;
 }

@@ -414,3 +414,7 @@ body.chat-open .chat {
 .panel .prio.p3 { color: var(--bad); }
 .panel li.someday .title { color: var(--muted); }
 .panel .when.waiting { color: var(--muted); }
+
+/* Lo que Claudio acaba de cambiar: resaltado un momento */
+.panel li.flash { animation: flash 2.4s ease-out 1; box-shadow: inset 3px 0 0 var(--accent); }
+@keyframes flash { 0%, 30% { background: rgba(217, 119, 87, .35); } }

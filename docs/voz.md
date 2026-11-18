@@ -68,4 +68,5 @@ Elegidas el 2026-11-18 (provisionales): **Jorge (mejorada)** en español y **Kok
 - Medido con las voces del Mac: Jorge 120 Hz, Mónica 174 Hz. **Falta calibrar con las voces reales**: la pulsación larga sobre la cara enseña el tono de la última frase.
 - Dueño del dispositivo: menú del pie → "Este dispositivo" (Kiosco / Javier / Ana; se guarda en `localStorage` `claudio.who`). El kiosco debe quedarse en Kiosco: es el único que escucha «Claudio» todo el rato; en un móvil personal el micro es pulsar para hablar.
 - La respuesta se dice con la voz de quien habla: Jorge a Javier (y si no se sabe), **Mónica (mejorada)** a Ana (`PEOPLE` en `server/config.ts`; `CLAUDIO_VOICE_ES_ANA` para cambiarla). En inglés, Kokoro Heart para los dos.
+- Decir "Claudio" otra vez tras el pitido no se manda como orden: se sigue escuchando.
 - Si el tono falla mucho (resfriados, voces parecidas), el siguiente paso es una huella de voz local (modelo de embeddings + unas frases grabadas de cada uno).

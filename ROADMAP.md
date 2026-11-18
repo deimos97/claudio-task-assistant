@@ -78,6 +78,8 @@
 - [x] Papel por dispositivo (2026-11-18): el kiosco escucha «Claudio», habla y duerme de noche; el móvil de Javier o Ana tiene micro de pulsar para hablar y no duerme. Se elige en el menú del pie
 - [x] Los ojos te siguen con la cámara frontal, por movimiento (2026-11-18). `web/camera.js`
 - [ ] Probar en el iPhone: cámara + micro a la vez (iOS a veces corta un `getUserMedia` al abrir otro), avisos y anillo de las rutinas
+- [x] Tras un cambio, el panel enseña solo lo cambiado, resaltado, 12 s (2026-11-18)
+- [ ] Calibrar el tono con vuestras voces: el 2026-11-18 una frase de Javier ("Ahí está") salió como Ana
 - [ ] Si el seguimiento por movimiento se queda corto: detección de caras (p. ej. MediaPipe en local)
 
 ## Fase 4 — Auto-mejora
@@ -105,6 +107,7 @@
 
 | Fecha | Decisión | Por qué |
 |---|---|---|
+| 2026-11-18 | Tras cada cambio, la pantalla enseña sola dónde ha quedado (resaltado) y se quita a los 12 s | Javier quiere ver lo que se ha añadido sin pedirlo |
 | 2026-11-18 | Claudio no habla por su cuenta: lo proactivo (resumen, preguntas de rutinas, km, citas pasadas) sale como aviso en pantalla y se dice al tocarlo o pedirlo | Javier no quiere que hable si no hay nadie delante |
 | 2026-11-18 | Las citas también se marcan ("la tuve"); si pasan sin marcar, siguen en rojo 30 días | Para no olvidar reprogramar una cita a la que no se fue |
 | 2026-11-18 | Pie con solo micro, cámara y menú; teclado, gestión y perfil van en el menú | Despejar el pie y dejar a mano lo que se activa a menudo |
